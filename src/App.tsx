@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Seeded RNG ---
@@ -22,6 +22,7 @@ interface AppConfig {
     seed: number;
     spinSpeed: number;
     waveSpeed: number;
+    zoom: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -32,13 +33,15 @@ const DEFAULT_CONFIG: AppConfig = {
     twist: 0,
     seed: 42,
     spinSpeed: 1,
-    waveSpeed: 1
+    waveSpeed: 1,
+    zoom: 0
 };
 
 export default function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [uiVisible, setUiVisible] = useState(true);
     const [isAutoAnimating, setIsAutoAnimating] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
@@ -115,6 +118,12 @@ export default function App() {
             isBulgeActive = true;
         }
 
+        // --- Infinite Zoom ---
+        // zoom is a continuous float. shift = integer generation, offset = fractional slide [0,1)
+        const zoom = config.zoom;
+        const shift = Math.floor(zoom);
+        const offset = zoom - shift;
+
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
             const r = r1 + v * (r2 - r1);
@@ -158,14 +167,18 @@ export default function App() {
         };
 
         // Draw Layers from outside in
+        // Each layer l (1..layers) uses identity (l + shift) for deterministic patterns
         for (let l = layers; l >= 1; l--) {
-            const layerRng = mulberry32(config.seed + l * 999);
+            const layerId = l + shift; // unique identity that changes as you zoom
+            const layerRng = mulberry32(config.seed + layerId * 999);
             const type = Math.floor(layerRng() * 5);
             const filled = layerRng() > 0.5;
 
-            // Base radii
-            let r1 = (l - 1) * config.spread;
-            let r2 = l * config.spread;
+            // Radii slide with offset for smooth zoom transition
+            let r1 = Math.max(0, (l - 1 + offset) * config.spread);
+            let r2 = (l + offset) * config.spread;
+
+            if (r2 <= 0) continue;
 
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
@@ -175,7 +188,7 @@ export default function App() {
                 bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
             }
             r2 += bulge;
-            if (l > 1) r1 += bulge * 0.5;
+            if (r1 > 0) r1 += bulge * 0.5;
 
             // Mask interior to clip the outer layer's inward bleed
             ctx.fillStyle = '#EBE7E0';
@@ -183,8 +196,9 @@ export default function App() {
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / l);
+            // Twist: Inner layers twist more, use abs(layerId) to stay consistent across zoom
+            const twistDivisor = Math.abs(layerId) + 1;
+            const layerTwist = config.twist * (1 / twistDivisor);
 
             // Draw a separator ring between layers
             ctx.save();
@@ -258,34 +272,39 @@ export default function App() {
             }
         }
 
-        // Draw Center Core (Sun motif)
-        const coreRng = mulberry32(config.seed);
-        const coreR = config.spread * 0.4;
+        // Draw Center Core (Sun motif) — only when innermost ring leaves room
+        const innerR1 = offset * config.spread;
+        const coreR = innerR1 * 0.6;
+        if (coreR > 2) {
+            const coreRng = mulberry32(config.seed + shift);
 
-        // Mask interior for core
-        ctx.fillStyle = '#EBE7E0';
-        ctx.beginPath();
-        ctx.arc(0, 0, coreR, 0, Math.PI * 2);
-        ctx.fill();
+            // Mask interior for core
+            ctx.fillStyle = '#EBE7E0';
+            ctx.beginPath();
+            ctx.arc(0, 0, innerR1, 0, Math.PI * 2);
+            ctx.fill();
 
-        const coreRingPts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.1) {
-            coreRingPts.push({ x: coreR * Math.cos(a), y: coreR * Math.sin(a) });
+            const coreRingPts = [];
+            for(let a=0; a<=Math.PI*2; a+=0.1) {
+                coreRingPts.push({ x: coreR * Math.cos(a), y: coreR * Math.sin(a) });
+            }
+            drawRoughPath(coreRingPts, 'outline', coreRng);
+
+            const corePts = [];
+            for(let a=0; a<=Math.PI*2; a+=0.2) {
+                corePts.push({ x: coreR * 0.8 * Math.cos(a), y: coreR * 0.8 * Math.sin(a) });
+            }
+            drawRoughPath(corePts, 'filled', coreRng);
+
+            // Inner core eye
+            if (coreR > 5) {
+                const eyePts = [];
+                for(let a=0; a<=Math.PI*2; a+=0.5) {
+                    eyePts.push({ x: coreR * 0.3 * Math.cos(a), y: coreR * 0.3 * Math.sin(a) });
+                }
+                drawRoughPath(eyePts, 'opaque-outline', coreRng);
+            }
         }
-        drawRoughPath(coreRingPts, 'outline', coreRng);
-
-        const corePts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.2) {
-            corePts.push({ x: coreR * 0.8 * Math.cos(a), y: coreR * 0.8 * Math.sin(a) });
-        }
-        drawRoughPath(corePts, 'filled', coreRng);
-
-        // Inner core eye
-        const eyePts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.5) {
-            eyePts.push({ x: coreR * 0.3 * Math.cos(a), y: coreR * 0.3 * Math.sin(a) });
-        }
-        drawRoughPath(eyePts, 'opaque-outline', coreRng);
 
         ctx.restore();
 
@@ -326,6 +345,15 @@ export default function App() {
         handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // --- Fullscreen Change Listener ---
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
     }, []);
 
     // --- Gesture Handlers ---
@@ -397,8 +425,9 @@ export default function App() {
                 const currentAngle = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
 
                 if (initialPinchDistRef.current && initialPinchAngleRef.current) {
+                    // Pinch controls infinite zoom
                     const scale = currentDist / initialPinchDistRef.current;
-                    configRef.current.spread = Math.max(20, Math.min(200, initialConfigRef.current.spread * scale));
+                    configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale) * 2;
 
                     let angleDiff = currentAngle - initialPinchAngleRef.current;
                     if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -459,7 +488,8 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            configRef.current.spread = Math.max(20, Math.min(200, configRef.current.spread - e.deltaY * 0.1));
+            // Scroll wheel controls infinite zoom
+            configRef.current.zoom -= e.deltaY * 0.003;
             isDirtyRef.current = true;
         };
 
@@ -508,6 +538,14 @@ export default function App() {
         autoAnimateRef.current = next;
     };
 
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+            document.exitFullscreen().catch(() => {});
+        }
+    };
+
     const handleLayerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         setLayerCount(val);
@@ -539,13 +577,22 @@ export default function App() {
                 {uiVisible ? <X size={24} /> : <Settings2 size={24} />}
             </button>
 
-            <button
-                onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
-                className="absolute top-6 right-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
-                title="Save Image"
-            >
-                <Download size={24} />
-            </button>
+            <div className="absolute top-6 right-6 z-50 flex gap-2">
+                <button
+                    onPointerDown={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
+                    title="Toggle Fullscreen"
+                >
+                    {isFullscreen ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
+                </button>
+                <button
+                    onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
+                    title="Save Image"
+                >
+                    <Download size={24} />
+                </button>
+            </div>
 
             <AnimatePresence>
                 {uiVisible && (
@@ -579,8 +626,8 @@ export default function App() {
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Maximize className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch 2 Fingers</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Spread / Scale</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch / Scroll</span>
+                                <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <RotateCw className="mb-2 text-black/70" size={24} />
