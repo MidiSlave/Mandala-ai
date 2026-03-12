@@ -91,7 +91,6 @@ export default function App() {
     const touchesRef = useRef<Map<number, {x: number, y: number}>>(new Map());
     const lastTapRef = useRef<number>(0);
     const initialPinchDistRef = useRef<number | null>(null);
-    const initialPinchAngleRef = useRef<number | null>(null);
     const initialConfigRef = useRef<AppConfig | null>(null);
 
     // Pointer reactivity
@@ -420,7 +419,6 @@ export default function App() {
         if (!canvas) return;
 
         const getDistance = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        const getAngle = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
         const onTouchStart = (e: TouchEvent) => {
             e.preventDefault();
@@ -448,7 +446,6 @@ export default function App() {
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 initialPinchDistRef.current = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
-                initialPinchAngleRef.current = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
                 initialConfigRef.current = { ...configRef.current };
                 pointerRef.current.active = false;
             } else if (e.touches.length === 1) {
@@ -480,17 +477,10 @@ export default function App() {
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 const currentDist = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
-                const currentAngle = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
 
-                if (initialPinchDistRef.current && initialPinchAngleRef.current) {
+                if (initialPinchDistRef.current) {
                     const scale = currentDist / initialPinchDistRef.current;
                     configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale) * 2;
-
-                    let angleDiff = currentAngle - initialPinchAngleRef.current;
-                    if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                    if (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-
-                    configRef.current.roughness = Math.max(0, Math.min(10, initialConfigRef.current.roughness + angleDiff * 5));
                     isDirtyRef.current = true;
                 }
             }
@@ -506,7 +496,6 @@ export default function App() {
             }
             if (e.touches.length < 2) {
                 initialPinchDistRef.current = null;
-                initialPinchAngleRef.current = null;
             }
             if (e.touches.length === 0) {
                 initialConfigRef.current = null;
