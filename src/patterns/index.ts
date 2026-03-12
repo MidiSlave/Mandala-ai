@@ -10,3 +10,4 @@ export { default as artDecoPatterns } from './artdeco';
 export { default as japanesePatterns } from './japanese';
 export { default as sacredPatterns } from './sacred';
 export { default as celticPatterns } from './celtic';
+export { default as egyptianPatterns } from './egyptian';

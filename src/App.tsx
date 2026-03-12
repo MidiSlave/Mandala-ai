@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 
 // --- Color Theme System ---
@@ -110,7 +110,7 @@ const COLOR_THEMES: ColorTheme[] = [
 
 const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
-    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns
+    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns
 ];
 
 // --- Seeded RNG ---
