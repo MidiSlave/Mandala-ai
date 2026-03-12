@@ -87,7 +87,7 @@ export default function App() {
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
     const [patternSetIndex, setPatternSetIndex] = useState(0);
-    const patternSetRef = useRef<PatternSet>(ALL_PATTERN_SETS[0]);
+    const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -182,7 +182,7 @@ export default function App() {
             return { x: r * Math.cos(a), y: r * Math.sin(a) };
         };
 
-        const patternSet = patternSetRef.current;
+        const patternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
 
         // Helper: Draw a rough path
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
@@ -218,12 +218,19 @@ export default function App() {
         };
 
         // Draw layers from outside in
+        const isMixMode = patternSetRef.current === null;
         for (let id = lastId; id >= firstId; id--) {
             const layerRng = mulberry32(config.seed + id * 999);
+            // In mix mode, each layer picks its own pattern set
+            const layerSet = isMixMode
+                ? ALL_PATTERN_SETS[Math.floor(layerRng() * ALL_PATTERN_SETS.length)]
+                : patternSet;
             // Pick pattern type — dedup against outer neighbor independently (stable per id)
-            let type = Math.floor(layerRng() * patternSet.count);
-            const neighborRaw = Math.floor(mulberry32(config.seed + (id + 1) * 999)() * patternSet.count);
-            if (type === neighborRaw) type = (type + 1) % patternSet.count;
+            let type = Math.floor(layerRng() * layerSet.count);
+            const neighborRng = mulberry32(config.seed + (id + 1) * 999);
+            if (isMixMode) neighborRng(); // consume set pick for neighbor too
+            const neighborRaw = Math.floor(neighborRng() * layerSet.count);
+            if (type === neighborRaw) type = (type + 1) % layerSet.count;
             const filled = layerRng() > 0.5;
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
@@ -289,7 +296,7 @@ export default function App() {
                         drawRoughPath(pts, style, layerRng);
                     };
 
-                    patternSet.draw(type, { drawUV, filled, baseStyle });
+                    layerSet.draw(type, { drawUV, filled, baseStyle });
 
                     ctx.restore();
                 }
@@ -683,9 +690,23 @@ export default function App() {
 
                         <div className="mb-6 pointer-events-auto touch-auto">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                Pattern Set: {ALL_PATTERN_SETS[patternSetIndex].name}
+                                Pattern Set: {patternSetIndex === -1 ? 'Mix' : ALL_PATTERN_SETS[patternSetIndex].name}
                             </label>
                             <div className="flex flex-wrap gap-1">
+                                <button
+                                    onClick={() => {
+                                        setPatternSetIndex(-1);
+                                        patternSetRef.current = null;
+                                        isDirtyRef.current = true;
+                                    }}
+                                    className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
+                                        patternSetIndex === -1
+                                            ? 'bg-black text-white'
+                                            : 'bg-black/10 text-black/60 hover:bg-black/20'
+                                    }`}
+                                >
+                                    Mix
+                                </button>
                                 {ALL_PATTERN_SETS.map((ps, i) => (
                                     <button
                                         key={ps.name}
