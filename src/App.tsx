@@ -550,11 +550,14 @@ export default function App() {
             <AnimatePresence>
                 {uiVisible && (
                     <motion.div
-                        initial={{ y: 50, opacity: 0, scale: 0.95 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: 50, opacity: 0, scale: 0.95 }}
+                        drag
+                        dragMomentum={false}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
+                        className="absolute top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
+                        style={{ zIndex: 40 }}
                     >
                         <button
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
