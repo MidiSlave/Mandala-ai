@@ -20,6 +20,9 @@ interface AppConfig {
     roughness: number;
     twist: number;
     seed: number;
+    spinSpeed: number;
+    waveSpeed: number;
+    zoom: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -28,7 +31,10 @@ const DEFAULT_CONFIG: AppConfig = {
     spread: 70,
     roughness: 2.0,
     twist: 0,
-    seed: 42
+    seed: 42,
+    spinSpeed: 1,
+    waveSpeed: 1,
+    zoom: 0
 };
 
 export default function App() {
@@ -36,11 +42,15 @@ export default function App() {
     const [uiVisible, setUiVisible] = useState(true);
     const [isAutoAnimating, setIsAutoAnimating] = useState(false);
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
+    const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
+    const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
+    const wavePhaseRef = useRef(0);
+    const lastTimeRef = useRef(performance.now());
     
     // Interaction refs
     const touchesRef = useRef<Map<number, {x: number, y: number}>>(new Map());
@@ -70,8 +80,13 @@ export default function App() {
         easedPointerRef.current.x += dx * 0.1;
         easedPointerRef.current.y += dy * 0.1;
 
+        const now = performance.now();
+        const dt = (now - lastTimeRef.current) / 1000;
+        lastTimeRef.current = now;
+
         if (autoAnimateRef.current) {
-            configRef.current.twist += 0.005;
+            configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
+            wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
             isDirtyRef.current = true;
         }
 
@@ -95,10 +110,38 @@ export default function App() {
         let isBulgeActive = pointerRef.current.active;
 
         if (autoAnimateRef.current && !pointerRef.current.active) {
-            const time = performance.now() * 0.001;
             const maxDist = Math.max(width, height) / 2 + config.spread * 2;
-            activePointerDist = (time * 250) % maxDist;
+            wavePhaseRef.current = wavePhaseRef.current % maxDist;
+            if (wavePhaseRef.current < 0) wavePhaseRef.current += maxDist;
+            activePointerDist = wavePhaseRef.current;
             isBulgeActive = true;
+        }
+
+        const zoom = config.zoom;
+        const shift = Math.floor(zoom);
+        let offset = zoom - shift; // [0, 1)
+
+        const startAbs = -1 - shift;
+        const count = layers + 2; // l from -1 to layers
+
+        // Calculate types
+        const getStep = (absL: number) => Math.floor(mulberry32(config.seed + absL * 999)() * 4) + 1;
+        let currentType = Math.floor(mulberry32(config.seed)() * 5);
+        if (startAbs > 0) {
+            for (let i = 1; i <= startAbs; i++) currentType = (currentType + getStep(i)) % 5;
+        } else if (startAbs < 0) {
+            for (let i = 0; i > startAbs; i--) currentType = (currentType - getStep(i) + 5) % 5;
+        }
+
+        const layerTypes: number[] = [];
+        const layerFilled: boolean[] = [];
+        for (let i = 0; i < count; i++) {
+            const absL = startAbs + i;
+            if (i > 0) {
+                currentType = (currentType + getStep(absL)) % 5;
+            }
+            layerTypes.push(currentType);
+            layerFilled.push(mulberry32(config.seed + absL * 999 + 1)() > 0.5);
         }
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
@@ -144,14 +187,17 @@ export default function App() {
         };
 
         // Draw Layers from outside in
-        for (let l = layers; l >= 1; l--) {
-            const layerRng = mulberry32(config.seed + l * 999);
-            const type = Math.floor(layerRng() * 5);
-            const filled = layerRng() > 0.5;
+        for (let l = layers; l >= -1; l--) {
+            const absL = l - shift;
+            const type = layerTypes[l + 1];
+            const filled = layerFilled[l + 1];
+            const layerRng = mulberry32(config.seed + absL * 999);
             
             // Base radii
-            let r1 = (l - 1) * config.spread;
-            let r2 = l * config.spread;
+            let r1 = Math.max(0, (l + offset) * config.spread);
+            let r2 = Math.max(0, (l + 1 + offset) * config.spread);
+
+            if (r2 <= 0) continue;
             
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
@@ -161,7 +207,7 @@ export default function App() {
                 bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
             }
             r2 += bulge;
-            if (l > 1) r1 += bulge * 0.5;
+            if (r1 > 0) r1 += bulge * 0.5;
 
             // Mask interior to clip the outer layer's inward bleed
             ctx.fillStyle = '#EBE7E0';
@@ -170,7 +216,7 @@ export default function App() {
             ctx.fill();
 
             // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / l);
+            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
 
             // Draw a separator ring between layers
             ctx.save();
@@ -244,37 +290,6 @@ export default function App() {
             }
         }
 
-        // Draw Center Core (Sun motif)
-        const coreRng = mulberry32(config.seed);
-        const coreR = config.spread * 0.4;
-        
-        // Mask interior for core
-        ctx.fillStyle = '#EBE7E0';
-        ctx.beginPath();
-        ctx.arc(0, 0, coreR, 0, Math.PI * 2);
-        ctx.fill();
-
-        const coreRingPts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.1) {
-            coreRingPts.push({ x: coreR * Math.cos(a), y: coreR * Math.sin(a) });
-        }
-        drawRoughPath(coreRingPts, 'outline', coreRng);
-
-        const corePts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.2) {
-            corePts.push({ x: coreR * 0.8 * Math.cos(a), y: coreR * 0.8 * Math.sin(a) });
-        }
-        drawRoughPath(corePts, 'filled', coreRng);
-        
-        // Inner core eye
-        const eyePts = [];
-        for(let a=0; a<=Math.PI*2; a+=0.5) {
-            eyePts.push({ x: coreR * 0.3 * Math.cos(a), y: coreR * 0.3 * Math.sin(a) });
-        }
-        drawRoughPath(eyePts, 'opaque-outline', coreRng);
-
-        ctx.restore();
-        
         // Add subtle grain overlay
         ctx.fillStyle = 'rgba(0,0,0,0.03)';
         for(let i=0; i<1500; i++) {
@@ -386,7 +401,7 @@ export default function App() {
 
                 if (initialPinchDistRef.current && initialPinchAngleRef.current) {
                     const scale = currentDist / initialPinchDistRef.current;
-                    configRef.current.spread = Math.max(20, Math.min(200, initialConfigRef.current.spread * scale));
+                    configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale);
 
                     let angleDiff = currentAngle - initialPinchAngleRef.current;
                     if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -447,7 +462,7 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            configRef.current.spread = Math.max(20, Math.min(200, configRef.current.spread - e.deltaY * 0.1));
+            configRef.current.zoom -= e.deltaY * 0.002;
             isDirtyRef.current = true;
         };
 
@@ -504,6 +519,18 @@ export default function App() {
         isDirtyRef.current = true;
     };
 
+    const handleSpinSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setSpinSpeed(val);
+        configRef.current.spinSpeed = val;
+    };
+
+    const handleWaveSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setWaveSpeed(val);
+        configRef.current.waveSpeed = val;
+    };
+
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-none">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
@@ -553,8 +580,8 @@ export default function App() {
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Maximize className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch 2 Fingers</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Spread / Scale</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch / Scroll</span>
+                                <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <RotateCw className="mb-2 text-black/70" size={24} />
@@ -588,6 +615,31 @@ export default function App() {
                                 className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                             />
                         </div>
+
+                        {isAutoAnimating && (
+                            <div className="flex gap-4 mb-6 pointer-events-auto touch-auto">
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                        Spin Speed
+                                    </label>
+                                    <input 
+                                        type="range" min="-3" max="3" step="0.1" 
+                                        value={spinSpeed} onChange={handleSpinSpeedChange}
+                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                        Wave Speed
+                                    </label>
+                                    <input 
+                                        type="range" min="0" max="3" step="0.1" 
+                                        value={waveSpeed} onChange={handleWaveSpeedChange}
+                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="pointer-events-auto flex justify-center gap-3">
                             <button 
