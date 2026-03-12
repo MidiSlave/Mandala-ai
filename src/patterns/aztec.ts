@@ -324,11 +324,11 @@ const aztecPatterns: PatternSet = {
                     const t = (i + 1) / 7;
                     const su = 0.15 + t * 0.70;
                     const sv = 0.04 + 0.18 * Math.sin(t * Math.PI);
-                    const ss = 0.035;
+                    const ss = 0.04;
                     drawUV([
                         [su, sv], [su + ss, sv + ss * 1.5],
                         [su + ss * 2, sv], [su + ss, sv - ss * 0.5],
-                    ], filled ? 'opaque-outline' : 'outline');
+                    ], filled ? 'opaque-outline' : 'filled');
                 }
 
                 // Scale marks along lower body
@@ -336,11 +336,11 @@ const aztecPatterns: PatternSet = {
                     const t = (i + 1) / 7;
                     const su = 0.15 + t * 0.70;
                     const sv = 0.58 + 0.20 * Math.sin(t * Math.PI);
-                    const ss = 0.035;
+                    const ss = 0.04;
                     drawUV([
                         [su, sv], [su + ss, sv + ss * 1.5],
                         [su + ss * 2, sv], [su + ss, sv - ss * 0.5],
-                    ], filled ? 'opaque-outline' : 'outline');
+                    ], filled ? 'opaque-outline' : 'filled');
                 }
 
                 // Center spine lines following the S-curve
@@ -363,6 +363,18 @@ const aztecPatterns: PatternSet = {
                         [0.80, 0.48], [0.80, 0.52],
                         [0.50, 0.50], [0.20, 0.44],
                     ], 'opaque-outline');
+                } else {
+                    // In outline mode, add filled middle band for visual weight
+                    drawUV([
+                        [0.20, 0.40], [0.50, 0.44],
+                        [0.80, 0.46], [0.80, 0.52],
+                        [0.50, 0.50], [0.20, 0.46],
+                    ], 'filled');
+                    // Tail tip filled
+                    drawUV([
+                        [0.08, 0.90], [0.22, 0.92],
+                        [0.22, 1.0], [0.08, 1.0],
+                    ], 'filled');
                 }
 
                 break;
