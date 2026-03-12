@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { aztecPatterns } from './patterns';
+import type { PathStyle } from './patterns';
 
 // --- Seeded RNG ---
 function mulberry32(a: number) {
@@ -173,7 +175,7 @@ export default function App() {
             return { x: r * Math.cos(a), y: r * Math.sin(a) };
         };
 
-        type PathStyle = 'filled' | 'opaque-outline' | 'outline' | 'line';
+        const patternSet = aztecPatterns;
 
         // Helper: Draw a rough path
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
@@ -212,9 +214,9 @@ export default function App() {
         for (let id = lastId; id >= firstId; id--) {
             const layerRng = mulberry32(config.seed + id * 999);
             // Pick pattern type — dedup against outer neighbor independently (stable per id)
-            let type = Math.floor(layerRng() * 5);
-            const neighborRaw = Math.floor(mulberry32(config.seed + (id + 1) * 999)() * 5);
-            if (type === neighborRaw) type = (type + 1) % 5;
+            let type = Math.floor(layerRng() * patternSet.count);
+            const neighborRaw = Math.floor(mulberry32(config.seed + (id + 1) * 999)() * patternSet.count);
+            if (type === neighborRaw) type = (type + 1) % patternSet.count;
             const filled = layerRng() > 0.5;
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
@@ -280,52 +282,7 @@ export default function App() {
                         drawRoughPath(pts, style, layerRng);
                     };
 
-                    switch (type) {
-                        case 0:
-                            drawUV([
-                                [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25],
-                                [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75],
-                                [0.8, 1], [1, 1], [1, 0]
-                            ], baseStyle);
-                            break;
-
-                        case 1:
-                            drawUV([[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]], baseStyle);
-                            if (!filled) {
-                                drawUV([[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]], 'filled');
-                            } else {
-                                drawUV([[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6]], 'opaque-outline');
-                            }
-                            break;
-
-                        case 2:
-                            drawUV([[0.1, 0], [0.9, 0], [0.5, 0.9]], baseStyle);
-                            if (!filled) {
-                                drawUV([[0.3, 0.2], [0.7, 0.2]], 'line');
-                                drawUV([[0.4, 0.4], [0.6, 0.4]], 'line');
-                                drawUV([[0.45, 0.6], [0.55, 0.6]], 'line');
-                            }
-                            break;
-
-                        case 3:
-                            if (filled) {
-                                drawUV([
-                                    [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8],
-                                    [0.2, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6],
-                                    [0.4, 0.2], [1.0, 0.2], [1.0, 1.0], [0, 1.0]
-                                ], 'filled');
-                            } else {
-                                drawUV([
-                                    [0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.3, 0.9], [0.3, 0.5], [0.7, 0.5]
-                                ], 'line');
-                            }
-                            break;
-
-                        case 4:
-                            drawUV([[0, 0], [0.5, 0.8], [1, 0]], baseStyle);
-                            drawUV([[0, 1], [0.5, 0.2], [1, 1]], filled ? 'opaque-outline' : 'filled');
-                            break;
-                    }
+                    patternSet.draw(type, { drawUV, filled, baseStyle });
 
                     ctx.restore();
                 }
