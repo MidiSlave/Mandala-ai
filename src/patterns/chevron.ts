@@ -69,44 +69,91 @@ const chevronPatterns: PatternSet = {
             }
 
             case 2: {
-                // Arrow with fletching — detailed arrow pointing right
+                // Arrow with fletching — large arrow filling most of tile vertically
 
-                // Shaft — long center line
-                drawUV([[0.05, 0.5], [0.70, 0.5]], 'line');
-                // Shaft thickness lines (parallel to shaft for bold look)
-                drawUV([[0.05, 0.47], [0.68, 0.47]], 'line');
-                drawUV([[0.05, 0.53], [0.68, 0.53]], 'line');
-
-                // Arrowhead — filled triangle pointing right
+                // === Shaft — thick bold shaft across the tile ===
+                const shaftTop = 0.44;
+                const shaftBot = 0.56;
                 drawUV([
-                    [0.70, 0.30], [0.95, 0.50], [0.70, 0.70]
+                    [0.05, shaftTop], [0.65, shaftTop],
+                    [0.65, shaftBot], [0.05, shaftBot]
+                ], filled ? 'filled' : 'outline');
+                // Center line along shaft
+                drawUV([[0.05, 0.5], [0.65, 0.5]], 'line');
+
+                // === Arrowhead — large filled triangle ===
+                drawUV([
+                    [0.65, 0.15], [0.95, 0.50], [0.65, 0.85]
                 ], 'filled');
-                // Arrowhead outline for crisp edge
                 drawUV([
-                    [0.70, 0.30], [0.95, 0.50], [0.70, 0.70], [0.70, 0.30]
+                    [0.65, 0.15], [0.95, 0.50], [0.65, 0.85], [0.65, 0.15]
                 ], 'line');
+                // Inner detail lines on arrowhead
+                drawUV([[0.68, 0.30], [0.88, 0.50]], 'line');
+                drawUV([[0.68, 0.70], [0.88, 0.50]], 'line');
+                drawUV([[0.68, 0.50], [0.85, 0.50]], 'line');
 
-                // Fletching — upper diagonal parallelogram
+                // === Fletching — large, 3 pairs spanning v 0.1 to 0.9 ===
+                // First pair (rear) — large vanes
                 drawUV([
-                    [0.05, 0.47], [0.15, 0.25], [0.20, 0.30], [0.10, 0.50]
+                    [0.03, shaftTop], [0.10, 0.12], [0.18, 0.18], [0.10, shaftTop]
+                ], filled ? 'filled' : 'outline');
+                drawUV([
+                    [0.03, shaftBot], [0.10, 0.88], [0.18, 0.82], [0.10, shaftBot]
                 ], filled ? 'filled' : 'outline');
 
-                // Fletching — lower diagonal parallelogram
+                // Second pair (mid) — medium vanes
                 drawUV([
-                    [0.05, 0.53], [0.15, 0.75], [0.20, 0.70], [0.10, 0.50]
+                    [0.12, shaftTop], [0.20, 0.18], [0.28, 0.24], [0.20, shaftTop]
+                ], filled ? 'opaque-outline' : 'outline');
+                drawUV([
+                    [0.12, shaftBot], [0.20, 0.82], [0.28, 0.76], [0.20, shaftBot]
+                ], filled ? 'opaque-outline' : 'outline');
+
+                // Third pair (forward) — smaller accent vanes
+                drawUV([
+                    [0.22, shaftTop], [0.28, 0.25], [0.34, 0.30], [0.28, shaftTop]
+                ], filled ? 'filled' : 'outline');
+                drawUV([
+                    [0.22, shaftBot], [0.28, 0.75], [0.34, 0.70], [0.28, shaftBot]
                 ], filled ? 'filled' : 'outline');
 
-                // Second layer of fletching (slightly forward)
-                drawUV([
-                    [0.12, 0.47], [0.20, 0.28], [0.25, 0.33], [0.17, 0.50]
-                ], filled ? 'opaque-outline' : 'outline');
-                drawUV([
-                    [0.12, 0.53], [0.20, 0.72], [0.25, 0.67], [0.17, 0.50]
-                ], filled ? 'opaque-outline' : 'outline');
+                // Fletching detail lines (barb texture)
+                for (let i = 0; i < 3; i++) {
+                    const u = 0.06 + i * 0.04;
+                    drawUV([[u, 0.42], [u + 0.03, 0.18 + i * 0.04]], 'line');
+                    drawUV([[u, 0.58], [u + 0.03, 0.82 - i * 0.04]], 'line');
+                }
 
-                // Nock — small notch line at the very tail
-                drawUV([[0.03, 0.42], [0.05, 0.50], [0.03, 0.58]], 'line');
-                drawUV([[0.02, 0.45], [0.02, 0.55]], 'line');
+                // === Nock — notch at tail ===
+                drawUV([[0.02, 0.38], [0.05, 0.50], [0.02, 0.62]], 'line');
+                drawUV([[0.01, 0.40], [0.01, 0.60]], 'line');
+
+                // === Decorative elements above and below arrow ===
+                // Top decoration: dots and small lines
+                drawUV([[0.35, 0.12], [0.55, 0.12]], 'line');
+                drawUV([[0.40, 0.08], [0.50, 0.08]], 'line');
+                for (let i = 0; i < 4; i++) {
+                    const u = 0.35 + i * 0.07;
+                    drawUV(circlePoints(u, 0.05, 0.015, 6), 'filled');
+                }
+
+                // Bottom decoration: dots and small lines
+                drawUV([[0.35, 0.88], [0.55, 0.88]], 'line');
+                drawUV([[0.40, 0.92], [0.50, 0.92]], 'line');
+                for (let i = 0; i < 4; i++) {
+                    const u = 0.35 + i * 0.07;
+                    drawUV(circlePoints(u, 0.95, 0.015, 6), 'filled');
+                }
+
+                // Small diamond accents along shaft
+                for (let i = 0; i < 3; i++) {
+                    const u = 0.35 + i * 0.10;
+                    drawUV([
+                        [u, 0.47], [u + 0.015, 0.50],
+                        [u, 0.53], [u - 0.015, 0.50]
+                    ], 'filled');
+                }
                 break;
             }
 

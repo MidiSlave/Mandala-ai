@@ -67,37 +67,74 @@ const lacePatterns: PatternSet = {
         switch (type) {
             // ── 0: Fan Scallop ──────────────────────────────────────────
             case 0: {
-                // Large semicircular fan/shell from [0,0] along outer edge to [1,0],
-                // peaking at [0.5, 0.95].
-                const arcPts: [number, number][] = [];
-                const arcSegments = 10;
-                for (let i = 0; i <= arcSegments; i++) {
-                    const t = i / arcSegments;
-                    const angle = Math.PI * t; // 0 to PI
-                    const u = 0.5 - 0.5 * Math.cos(angle); // 0 -> 1
-                    const v = 0.95 * Math.sin(angle);       // 0 -> 0.95 -> 0
-                    arcPts.push([u, v]);
-                }
+                // Fan broken into individual ribs/sections with gaps between them
+                const numRibs = 7;
+                const base: [number, number] = [0.5, 0.0];
+                const fanRadius = 0.85;
+                const ribWidth = 0.035; // narrow ribs with gaps
 
-                if (filled) {
-                    // Solid filled fan shape
-                    drawUV(arcPts, 'filled');
-                } else {
-                    // Outline of the fan arc
-                    drawUV(arcPts, 'outline');
+                // Draw individual rib sections (thin wedge shapes radiating from base)
+                for (let i = 0; i < numRibs; i++) {
+                    const t = (i + 0.5) / numRibs;
+                    const angle = Math.PI * t;
+                    const outerU = 0.5 - 0.5 * Math.cos(angle);
+                    const outerV = fanRadius * Math.sin(angle);
+                    // Direction from base to tip
+                    const dx = outerU - base[0];
+                    const dy = outerV - base[1];
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const nx = -dy / len;
+                    const ny = dx / len;
 
-                    // 5 radiating lines from base center to points along the arc
-                    const base: [number, number] = [0.5, 0];
-                    for (let i = 1; i <= 5; i++) {
-                        const t = i / 6; // evenly spaced, skip endpoints
-                        const angle = Math.PI * t;
-                        const u = 0.5 - 0.5 * Math.cos(angle);
-                        const v = 0.95 * Math.sin(angle);
-                        drawUV([base, [u, v]], 'line');
+                    // Each rib is a thin elongated shape
+                    const rib: [number, number][] = [
+                        [base[0] - nx * ribWidth * 0.3, base[1] - ny * ribWidth * 0.3],
+                        [outerU - nx * ribWidth, outerV - ny * ribWidth],
+                        [outerU, outerV + 0.02], // rounded tip
+                        [outerU + nx * ribWidth, outerV + ny * ribWidth],
+                        [base[0] + nx * ribWidth * 0.3, base[1] + ny * ribWidth * 0.3],
+                    ];
+
+                    if (filled) {
+                        // Alternate between filled and opaque-outline for visual variety
+                        drawUV(rib, i % 2 === 0 ? 'filled' : 'opaque-outline');
+                    } else {
+                        drawUV(rib, 'outline');
                     }
                 }
 
-                // Decorative small scallops along the fan arc (tiny arcs between radial lines)
+                // Radiating detail lines between ribs (thinner guide lines)
+                for (let i = 0; i <= numRibs; i++) {
+                    const t = i / numRibs;
+                    const angle = Math.PI * t;
+                    const outerU = 0.5 - 0.5 * Math.cos(angle);
+                    const outerV = fanRadius * Math.sin(angle);
+                    drawUV([base, [outerU, outerV]], 'line');
+                }
+
+                // Inner arc at 40% radius for structural detail
+                const innerArc: [number, number][] = [];
+                for (let i = 0; i <= 16; i++) {
+                    const t = i / 16;
+                    const angle = Math.PI * t;
+                    const u = 0.5 - 0.2 * Math.cos(angle);
+                    const v = 0.35 * Math.sin(angle);
+                    innerArc.push([u, v]);
+                }
+                drawUV(innerArc, 'line');
+
+                // Middle arc at 60% radius
+                const midArc: [number, number][] = [];
+                for (let i = 0; i <= 16; i++) {
+                    const t = i / 16;
+                    const angle = Math.PI * t;
+                    const u = 0.5 - 0.32 * Math.cos(angle);
+                    const v = 0.55 * Math.sin(angle);
+                    midArc.push([u, v]);
+                }
+                drawUV(midArc, 'line');
+
+                // Decorative small scallops along the outer fan arc edge
                 for (let i = 0; i < 6; i++) {
                     const t0 = i / 6;
                     const t1 = (i + 1) / 6;
@@ -106,16 +143,23 @@ const lacePatterns: PatternSet = {
                         const t = t0 + (t1 - t0) * (j / 5);
                         const angle = Math.PI * t;
                         const u = 0.5 - 0.5 * Math.cos(angle);
-                        const v = 0.95 * Math.sin(angle);
-                        // Push slightly outward for a scalloped edge effect
+                        const v = fanRadius * Math.sin(angle);
                         const nudge = 0.04 * Math.sin(Math.PI * (j / 5));
-                        const len = Math.sqrt(u * u + v * v) || 1;
                         miniArc.push([u, v + nudge]);
                     }
                     drawUV(miniArc, 'line');
                 }
 
-                // Small dot at the base
+                // Small dots at the tips of each rib
+                for (let i = 0; i < numRibs; i++) {
+                    const t = (i + 0.5) / numRibs;
+                    const angle = Math.PI * t;
+                    const u = 0.5 - 0.5 * Math.cos(angle);
+                    const v = fanRadius * Math.sin(angle);
+                    drawUV(circlePoints(u, v, 0.02, 6), 'filled');
+                }
+
+                // Small filled dot at the base
                 drawUV(circlePoints(0.5, 0.0, 0.03, 8), 'filled');
                 break;
             }
