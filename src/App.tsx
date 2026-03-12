@@ -451,7 +451,7 @@ export default function App() {
 
                 if (initialPinchDistRef.current) {
                     const scale = currentDist / initialPinchDistRef.current;
-                    configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale) * 2;
+                    configRef.current.zoom = initialConfigRef.current.zoom - Math.log2(scale) * 2;
                     isDirtyRef.current = true;
                 }
             }
@@ -505,7 +505,7 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            configRef.current.zoom -= e.deltaY * 0.003;
+            configRef.current.zoom += e.deltaY * 0.003;
             isDirtyRef.current = true;
         };
 
