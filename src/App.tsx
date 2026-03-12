@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Seeded RNG ---
@@ -688,11 +688,6 @@ export default function App() {
                                 <Maximize className="mb-2 text-black/70" size={24} />
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch / Scroll</span>
                                 <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
-                            </div>
-                            <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
-                                <RotateCw className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Rotate 2 Fingers</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Roughness</span>
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Shuffle className="mb-2 text-black/70" size={24} />
