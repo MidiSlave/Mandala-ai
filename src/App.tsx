@@ -22,20 +22,30 @@ interface AppConfig {
     seed: number;
     spinSpeed: number;
     waveSpeed: number;
+    zoomSpeed: number;
     zoom: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
     symmetry: 12,
-    layers: 6,
+    layers: 12,
     spread: 70,
     roughness: 2.0,
     twist: 0,
     seed: 42,
     spinSpeed: 1,
     waveSpeed: 1,
+    zoomSpeed: 0.3,
     zoom: 0
 };
+
+// Exponential radius mapping: maps normalized t in [0,1] to radius
+// power > 1 compresses inner rings together (tunnel effect)
+const TUNNEL_POWER = 2.5;
+
+function tunnelRadius(t: number, maxR: number): number {
+    return maxR * Math.pow(Math.max(0, t), TUNNEL_POWER);
+}
 
 export default function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +55,7 @@ export default function App() {
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
+    const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -73,7 +84,6 @@ export default function App() {
 
         const width = window.innerWidth;
         const height = window.innerHeight;
-        const dpr = window.devicePixelRatio || 1;
 
         // Ease pointer for smooth reactive bulging
         const dx = pointerRef.current.x - easedPointerRef.current.x;
@@ -88,6 +98,7 @@ export default function App() {
         if (autoAnimateRef.current) {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
+            configRef.current.zoom += dt * configRef.current.zoomSpeed;
             isDirtyRef.current = true;
         }
 
@@ -107,22 +118,24 @@ export default function App() {
         const layers = Math.max(1, Math.floor(config.layers));
         const angleStep = (Math.PI * 2) / sym;
 
+        // Max radius covers the screen diagonal
+        const maxR = Math.hypot(width, height) / 2 + 50;
+
         let activePointerDist = Math.hypot(easedPointerRef.current.x - width/2, easedPointerRef.current.y - height/2);
         let isBulgeActive = pointerRef.current.active;
 
         if (autoAnimateRef.current && !pointerRef.current.active) {
-            const maxDist = Math.max(width, height) / 2 + config.spread * 2;
+            const maxDist = maxR;
             wavePhaseRef.current = wavePhaseRef.current % maxDist;
             if (wavePhaseRef.current < 0) wavePhaseRef.current += maxDist;
             activePointerDist = wavePhaseRef.current;
             isBulgeActive = true;
         }
 
-        // --- Infinite Zoom ---
-        // zoom is a continuous float. shift = integer generation, offset = fractional slide [0,1)
+        // --- Infinite Zoom (tunnel conveyor belt) ---
         const zoom = config.zoom;
         const shift = Math.floor(zoom);
-        const offset = zoom - shift;
+        const offset = zoom - shift; // fractional [0, 1)
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
@@ -166,29 +179,41 @@ export default function App() {
             }
         };
 
-        // Draw Layers from outside in
-        // Each layer l (1..layers) uses identity (l + shift) for deterministic patterns
+        // Draw layers from outside in
+        // Each layer l (1..layers) maps to a position along the tunnel
+        // Normalized position t = (l + offset) / (layers + 1)
+        // Exponential radius: tunnelRadius(t) compresses inner layers
         for (let l = layers; l >= 1; l--) {
-            const layerId = l + shift; // unique identity that changes as you zoom
+            const layerId = l + shift; // unique identity for deterministic patterns
             const layerRng = mulberry32(config.seed + layerId * 999);
             const type = Math.floor(layerRng() * 5);
             const filled = layerRng() > 0.5;
+            // Per-layer spin direction: -1 or +1, deterministic from seed
+            const spinDir = layerRng() > 0.5 ? 1 : -1;
 
-            // Radii slide with offset for smooth zoom transition
-            let r1 = Math.max(0, (l - 1 + offset) * config.spread);
-            let r2 = (l + offset) * config.spread;
+            // Normalized positions along the tunnel
+            const t1 = (l - 1 + offset) / (layers + 1);
+            const t2 = (l + offset) / (layers + 1);
 
-            if (r2 <= 0) continue;
+            // Exponential radii — inner layers are heavily compressed
+            let r1 = tunnelRadius(t1, maxR);
+            let r2 = tunnelRadius(t2, maxR);
+
+            if (r2 <= 0.5) continue; // too small to see
+
+            // Ring thickness — skip drawing motifs if too thin
+            const thickness = r2 - r1;
+            const tooThin = thickness < 3;
 
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
             const distToLayer = Math.abs(activePointerDist - midR);
             let bulge = 0;
-            if (isBulgeActive && distToLayer < config.spread * 1.5) {
-                bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
+            if (isBulgeActive && distToLayer < thickness * 2) {
+                bulge = (1 - distToLayer / (thickness * 2)) * (thickness * 0.5);
             }
             r2 += bulge;
-            if (r1 > 0) r1 += bulge * 0.5;
+            if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
             // Mask interior to clip the outer layer's inward bleed
             ctx.fillStyle = '#EBE7E0';
@@ -196,113 +221,115 @@ export default function App() {
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Twist: Inner layers twist more, use abs(layerId) to stay consistent across zoom
-            const twistDivisor = Math.abs(layerId) + 1;
-            const layerTwist = config.twist * (1 / twistDivisor);
+            // Twist: each layer spins its own direction
+            // Inner layers (small t) twist faster
+            const twistMag = 1 / (t2 * 3 + 0.3);
+            const layerTwist = config.twist * twistMag * spinDir;
 
             // Draw a separator ring between layers
             ctx.save();
+            // Fade inner rings' opacity as they compress
+            const alpha = Math.min(1, thickness / 8);
+            ctx.globalAlpha = alpha;
+
             const ringPts = [];
             for(let a=0; a<=Math.PI*2; a+=0.1) {
                 ringPts.push({ x: r2 * Math.cos(a), y: r2 * Math.sin(a) });
             }
             drawRoughPath(ringPts, 'outline', layerRng);
-            ctx.restore();
 
-            const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
+            if (!tooThin) {
+                const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
 
-            for (let i = 0; i < sym; i++) {
-                ctx.save();
-                ctx.rotate(i * angleStep);
+                for (let i = 0; i < sym; i++) {
+                    ctx.save();
+                    ctx.rotate(i * angleStep);
 
-                const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                    const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
-                    drawRoughPath(pts, style, layerRng);
-                };
+                    const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                        const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
+                        drawRoughPath(pts, style, layerRng);
+                    };
 
-                // Aztec / Mayan Motifs mapped to UV space
-                switch (type) {
-                    case 0: // Stepped Pyramid (Chakana half)
-                        drawUV([
-                            [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25],
-                            [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75],
-                            [0.8, 1], [1, 1], [1, 0]
-                        ], baseStyle);
-                        break;
-
-                    case 1: // Mayan Glyph Block (Square with inner details)
-                        drawUV([[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]], baseStyle);
-                        if (!filled) {
-                            drawUV([[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]], 'filled');
-                        } else {
-                            drawUV([[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6]], 'opaque-outline');
-                        }
-                        break;
-
-                    case 2: // Sun Rays (Triangles with hatching)
-                        drawUV([[0.1, 0], [0.9, 0], [0.5, 0.9]], baseStyle);
-                        if (!filled) {
-                            drawUV([[0.3, 0.2], [0.7, 0.2]], 'line');
-                            drawUV([[0.4, 0.4], [0.6, 0.4]], 'line');
-                            drawUV([[0.45, 0.6], [0.55, 0.6]], 'line');
-                        }
-                        break;
-
-                    case 3: // Aztec Fret (Meander)
-                        if (filled) {
+                    // Aztec / Mayan Motifs mapped to UV space
+                    switch (type) {
+                        case 0: // Stepped Pyramid (Chakana half)
                             drawUV([
-                                [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8],
-                                [0.2, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6],
-                                [0.4, 0.2], [1.0, 0.2], [1.0, 1.0], [0, 1.0]
-                            ], 'filled');
-                        } else {
-                            drawUV([
-                                [0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.3, 0.9], [0.3, 0.5], [0.7, 0.5]
-                            ], 'line');
-                        }
-                        break;
+                                [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25],
+                                [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75],
+                                [0.8, 1], [1, 1], [1, 0]
+                            ], baseStyle);
+                            break;
 
-                    case 4: // Interlocking Teeth
-                        drawUV([[0, 0], [0.5, 0.8], [1, 0]], baseStyle);
-                        drawUV([[0, 1], [0.5, 0.2], [1, 1]], filled ? 'opaque-outline' : 'filled');
-                        break;
+                        case 1: // Mayan Glyph Block (Square with inner details)
+                            drawUV([[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]], baseStyle);
+                            if (!filled) {
+                                drawUV([[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]], 'filled');
+                            } else {
+                                drawUV([[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6]], 'opaque-outline');
+                            }
+                            break;
+
+                        case 2: // Sun Rays (Triangles with hatching)
+                            drawUV([[0.1, 0], [0.9, 0], [0.5, 0.9]], baseStyle);
+                            if (!filled) {
+                                drawUV([[0.3, 0.2], [0.7, 0.2]], 'line');
+                                drawUV([[0.4, 0.4], [0.6, 0.4]], 'line');
+                                drawUV([[0.45, 0.6], [0.55, 0.6]], 'line');
+                            }
+                            break;
+
+                        case 3: // Aztec Fret (Meander)
+                            if (filled) {
+                                drawUV([
+                                    [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8],
+                                    [0.2, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6],
+                                    [0.4, 0.2], [1.0, 0.2], [1.0, 1.0], [0, 1.0]
+                                ], 'filled');
+                            } else {
+                                drawUV([
+                                    [0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.3, 0.9], [0.3, 0.5], [0.7, 0.5]
+                                ], 'line');
+                            }
+                            break;
+
+                        case 4: // Interlocking Teeth
+                            drawUV([[0, 0], [0.5, 0.8], [1, 0]], baseStyle);
+                            drawUV([[0, 1], [0.5, 0.2], [1, 1]], filled ? 'opaque-outline' : 'filled');
+                            break;
+                    }
+
+                    ctx.restore();
                 }
-
-                ctx.restore();
             }
+
+            ctx.restore(); // restore globalAlpha
         }
 
-        // Draw Center Core (Sun motif) — only when innermost ring leaves room
-        const innerR1 = offset * config.spread;
-        const coreR = innerR1 * 0.6;
-        if (coreR > 2) {
-            const coreRng = mulberry32(config.seed + shift);
-
-            // Mask interior for core
-            ctx.fillStyle = '#EBE7E0';
+        // Dense center: fill the innermost area with dark to simulate
+        // infinitely compressed rings disappearing into a vanishing point
+        const innermostT = offset / (layers + 1);
+        const innermostR = tunnelRadius(innermostT, maxR);
+        if (innermostR > 0.5) {
+            // Gradient from paper color at edge to dark at center
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, innermostR);
+            grad.addColorStop(0, 'rgba(26, 24, 24, 0.85)');
+            grad.addColorStop(0.4, 'rgba(26, 24, 24, 0.5)');
+            grad.addColorStop(0.8, 'rgba(26, 24, 24, 0.15)');
+            grad.addColorStop(1, 'rgba(235, 231, 224, 0)');
+            ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(0, 0, innerR1, 0, Math.PI * 2);
+            ctx.arc(0, 0, innermostR, 0, Math.PI * 2);
             ctx.fill();
 
-            const coreRingPts = [];
-            for(let a=0; a<=Math.PI*2; a+=0.1) {
-                coreRingPts.push({ x: coreR * Math.cos(a), y: coreR * Math.sin(a) });
-            }
-            drawRoughPath(coreRingPts, 'outline', coreRng);
-
-            const corePts = [];
-            for(let a=0; a<=Math.PI*2; a+=0.2) {
-                corePts.push({ x: coreR * 0.8 * Math.cos(a), y: coreR * 0.8 * Math.sin(a) });
-            }
-            drawRoughPath(corePts, 'filled', coreRng);
-
-            // Inner core eye
-            if (coreR > 5) {
-                const eyePts = [];
-                for(let a=0; a<=Math.PI*2; a+=0.5) {
-                    eyePts.push({ x: coreR * 0.3 * Math.cos(a), y: coreR * 0.3 * Math.sin(a) });
-                }
-                drawRoughPath(eyePts, 'opaque-outline', coreRng);
+            // Add concentric ring hints for density
+            const coreRng = mulberry32(config.seed + shift * 7);
+            ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < 6; i++) {
+                const rr = innermostR * (0.1 + coreRng() * 0.8);
+                ctx.beginPath();
+                ctx.arc(0, 0, rr, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
 
@@ -565,6 +592,12 @@ export default function App() {
         configRef.current.waveSpeed = val;
     };
 
+    const handleZoomSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setZoomSpeed(val);
+        configRef.current.zoomSpeed = val;
+    };
+
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
@@ -663,24 +696,36 @@ export default function App() {
                         </div>
 
                         {isAutoAnimating && (
-                            <div className="flex gap-4 mb-6 pointer-events-auto touch-auto">
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                        Spin Speed
-                                    </label>
-                                    <input
-                                        type="range" min="-3" max="3" step="0.1"
-                                        value={spinSpeed} onChange={handleSpinSpeedChange}
-                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                                    />
+                            <div className="space-y-4 mb-6 pointer-events-auto touch-auto">
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Spin Speed
+                                        </label>
+                                        <input
+                                            type="range" min="-10" max="10" step="0.1"
+                                            value={spinSpeed} onChange={handleSpinSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Wave Speed
+                                        </label>
+                                        <input
+                                            type="range" min="0" max="10" step="0.1"
+                                            value={waveSpeed} onChange={handleWaveSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex-1">
+                                <div>
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                        Wave Speed
+                                        Zoom Speed
                                     </label>
                                     <input
-                                        type="range" min="0" max="3" step="0.1"
-                                        value={waveSpeed} onChange={handleWaveSpeedChange}
+                                        type="range" min="-2" max="2" step="0.05"
+                                        value={zoomSpeed} onChange={handleZoomSpeedChange}
                                         className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                                     />
                                 </div>
