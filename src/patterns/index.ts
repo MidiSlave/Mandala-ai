@@ -6,3 +6,7 @@ export { default as chevronPatterns } from './chevron';
 export { default as lotusPatterns } from './lotus';
 export { default as greekkeyPatterns } from './greekkey';
 export { default as tribalPatterns } from './tribal';
+export { default as artDecoPatterns } from './artdeco';
+export { default as japanesePatterns } from './japanese';
+export { default as sacredPatterns } from './sacred';
+export { default as celticPatterns } from './celtic';

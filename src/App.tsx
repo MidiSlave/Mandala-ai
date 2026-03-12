@@ -1,12 +1,116 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
+
+// --- Color Theme System ---
+interface ColorTheme {
+    name: string;
+    background: string;
+    colors: string[];        // 3-5 colors for fills, picked per-layer
+    stroke: string;          // stroke color (with alpha)
+    strokeLight: string;     // lighter stroke for outlines
+    grain: string;           // grain overlay color
+    centerDark: string;      // center vanishing point color (rgba)
+}
+
+const COLOR_THEMES: ColorTheme[] = [
+    {
+        name: 'Monochrome',
+        background: '#EBE7E0',
+        colors: ['#1A1818'],
+        stroke: 'rgba(26, 24, 24, 0.9)',
+        strokeLight: 'rgba(26, 24, 24, 0.6)',
+        grain: 'rgba(0,0,0,0.03)',
+        centerDark: '26, 24, 24',
+    },
+    {
+        name: 'Pastel',
+        background: '#FFF6E3',
+        colors: ['#9B8A9E', '#7BA69E', '#C4889B', '#B08D57', '#6B7FA6'],
+        stroke: 'rgba(100, 80, 100, 0.85)',
+        strokeLight: 'rgba(100, 80, 100, 0.5)',
+        grain: 'rgba(80,60,80,0.025)',
+        centerDark: '100, 80, 100',
+    },
+    {
+        name: 'Neon',
+        background: '#070014',
+        colors: ['#EA00D9', '#0ABDC6', '#39FF14', '#FF0055', '#FFD700'],
+        stroke: 'rgba(255, 255, 255, 0.7)',
+        strokeLight: 'rgba(255, 255, 255, 0.4)',
+        grain: 'rgba(255,255,255,0.02)',
+        centerDark: '200, 0, 200',
+    },
+    {
+        name: 'Sepia',
+        background: '#FDFBD4',
+        colors: ['#704214', '#8B4513', '#A2574F', '#5C3A1E', '#8E6B3D'],
+        stroke: 'rgba(80, 48, 16, 0.85)',
+        strokeLight: 'rgba(80, 48, 16, 0.5)',
+        grain: 'rgba(80,48,16,0.025)',
+        centerDark: '80, 48, 16',
+    },
+    {
+        name: 'Sunset',
+        background: '#272344',
+        colors: ['#FA9C32', '#C2435F', '#E44C1D', '#FFD166', '#5E508D'],
+        stroke: 'rgba(250, 200, 150, 0.7)',
+        strokeLight: 'rgba(250, 200, 150, 0.4)',
+        grain: 'rgba(255,200,100,0.02)',
+        centerDark: '200, 100, 50',
+    },
+    {
+        name: 'Ocean',
+        background: '#0A1628',
+        colors: ['#457F9A', '#084596', '#1CA9C9', '#3B5F7F', '#FCC40F'],
+        stroke: 'rgba(100, 180, 220, 0.7)',
+        strokeLight: 'rgba(100, 180, 220, 0.4)',
+        grain: 'rgba(100,180,220,0.02)',
+        centerDark: '50, 100, 150',
+    },
+    {
+        name: 'Forest',
+        background: '#1A2E1A',
+        colors: ['#8A9A5B', '#2E6F40', '#B7410E', '#B2C495', '#6B8E23'],
+        stroke: 'rgba(150, 180, 100, 0.7)',
+        strokeLight: 'rgba(150, 180, 100, 0.4)',
+        grain: 'rgba(100,150,80,0.02)',
+        centerDark: '40, 80, 40',
+    },
+    {
+        name: 'Royal',
+        background: '#0D1B2A',
+        colors: ['#CFB53B', '#B87333', '#F7E7CE', '#8B7536', '#D4AF37'],
+        stroke: 'rgba(200, 180, 60, 0.7)',
+        strokeLight: 'rgba(200, 180, 60, 0.4)',
+        grain: 'rgba(200,180,60,0.02)',
+        centerDark: '160, 140, 40',
+    },
+    {
+        name: 'Vaporwave',
+        background: '#1A0A2E',
+        colors: ['#FF6EC7', '#00E5FF', '#C4A1FF', '#FFB6C1', '#7B68EE'],
+        stroke: 'rgba(255, 110, 199, 0.7)',
+        strokeLight: 'rgba(255, 110, 199, 0.4)',
+        grain: 'rgba(200,100,255,0.02)',
+        centerDark: '150, 50, 200',
+    },
+    {
+        name: 'Terracotta',
+        background: '#F5E6D3',
+        colors: ['#C75B39', '#3F4FA1', '#D4A843', '#8B3A2F', '#1E2456'],
+        stroke: 'rgba(140, 60, 40, 0.85)',
+        strokeLight: 'rgba(140, 60, 40, 0.5)',
+        grain: 'rgba(100,50,30,0.025)',
+        centerDark: '140, 60, 40',
+    },
+];
 
 const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
-    lotusPatterns, greekkeyPatterns, tribalPatterns
+    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns
 ];
 
 // --- Seeded RNG ---
@@ -88,6 +192,8 @@ export default function App() {
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
     const [patternSetIndex, setPatternSetIndex] = useState(0);
     const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
+    const [themeIndex, setThemeIndex] = useState(0);
+    const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -137,8 +243,8 @@ export default function App() {
         const isPointerMoving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
         if (!isDirtyRef.current && !isPointerMoving && !pointerRef.current.active) return;
 
-        // Clear with warm stone/paper texture color
-        ctx.fillStyle = '#EBE7E0';
+        // Clear with background color
+        ctx.fillStyle = themeRef.current.background;
         ctx.fillRect(0, 0, width, height);
 
         ctx.save();
@@ -184,12 +290,15 @@ export default function App() {
 
         const patternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
 
-        // Helper: Draw a rough path
+        // Helper: Draw a rough path (theme-aware)
+        const theme = themeRef.current;
+        let layerColor = theme.colors[0]; // updated per-layer
+
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
             const passes = style === 'filled' ? 1 : 2;
 
             if (style === 'filled' || style === 'opaque-outline') {
-                ctx.fillStyle = style === 'filled' ? '#1A1818' : '#EBE7E0';
+                ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
                 ctx.beginPath();
                 points.forEach((p, i) => {
                     const nx = p.x + (rng() - 0.5) * config.roughness;
@@ -201,7 +310,7 @@ export default function App() {
                 ctx.fill();
             }
 
-            ctx.strokeStyle = style === 'filled' ? 'rgba(26, 24, 24, 0.9)' : 'rgba(26, 24, 24, 0.6)';
+            ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
             ctx.lineWidth = 1.5;
 
             for (let pass = 0; pass < passes; pass++) {
@@ -232,6 +341,8 @@ export default function App() {
             const neighborRaw = Math.floor(neighborRng() * layerSet.count);
             if (type === neighborRaw) type = (type + 1) % layerSet.count;
             const filled = layerRng() > 0.5;
+            // Per-layer color from theme palette
+            layerColor = theme.colors[Math.floor(layerRng() * theme.colors.length)];
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
             const speedOffset = (layerRng() - 0.5) * 2; // [-1, 1]
@@ -262,7 +373,7 @@ export default function App() {
             if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
             // Mask interior
-            ctx.fillStyle = '#EBE7E0';
+            ctx.fillStyle = theme.background;
             ctx.beginPath();
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
@@ -309,18 +420,19 @@ export default function App() {
         const innermostT = Math.max(0, (firstId - zoom) / N);
         const coreR = tunnelRadius(innermostT, maxR);
         if (coreR > 0.5) {
+            const cd = theme.centerDark;
             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
-            grad.addColorStop(0, 'rgba(26, 24, 24, 0.85)');
-            grad.addColorStop(0.4, 'rgba(26, 24, 24, 0.5)');
-            grad.addColorStop(0.8, 'rgba(26, 24, 24, 0.15)');
-            grad.addColorStop(1, 'rgba(235, 231, 224, 0)');
+            grad.addColorStop(0, `rgba(${cd}, 0.85)`);
+            grad.addColorStop(0.4, `rgba(${cd}, 0.5)`);
+            grad.addColorStop(0.8, `rgba(${cd}, 0.15)`);
+            grad.addColorStop(1, `rgba(${cd}, 0)`);
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(0, 0, coreR, 0, Math.PI * 2);
             ctx.fill();
 
             const coreRng = mulberry32(config.seed + firstId * 7);
-            ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
+            ctx.strokeStyle = `rgba(${cd}, 0.3)`;
             ctx.lineWidth = 0.5;
             for (let i = 0; i < 6; i++) {
                 const rr = coreR * (0.1 + coreRng() * 0.8);
@@ -333,7 +445,7 @@ export default function App() {
         ctx.restore();
 
         // Grain overlay
-        ctx.fillStyle = 'rgba(0,0,0,0.03)';
+        ctx.fillStyle = theme.grain;
         for(let i=0; i<1500; i++) {
             ctx.fillRect(Math.random()*width, Math.random()*height, 1.5, 1.5);
         }
@@ -597,7 +709,7 @@ export default function App() {
     };
 
     return (
-        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden font-sans selection:bg-black/10" style={{ background: COLOR_THEMES[themeIndex].background, color: COLOR_THEMES[themeIndex].colors[0] }}>
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
 
             <button
@@ -722,6 +834,36 @@ export default function App() {
                                         }`}
                                     >
                                         {ps.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mb-6 pointer-events-auto touch-auto">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                <Palette size={14} />
+                                Color Theme: {COLOR_THEMES[themeIndex].name}
+                            </label>
+                            <div className="flex flex-wrap gap-1">
+                                {COLOR_THEMES.map((t, i) => (
+                                    <button
+                                        key={t.name}
+                                        onClick={() => {
+                                            setThemeIndex(i);
+                                            themeRef.current = COLOR_THEMES[i];
+                                            isDirtyRef.current = true;
+                                        }}
+                                        className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center gap-1 ${
+                                            i === themeIndex
+                                                ? 'bg-black text-white'
+                                                : 'bg-black/10 text-black/60 hover:bg-black/20'
+                                        }`}
+                                    >
+                                        <span
+                                            className="inline-block w-2 h-2 rounded-full border border-black/20"
+                                            style={{ background: t.colors[0] }}
+                                        />
+                                        {t.name}
                                     </button>
                                 ))}
                             </div>
