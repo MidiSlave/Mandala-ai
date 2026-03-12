@@ -67,100 +67,106 @@ const lacePatterns: PatternSet = {
         switch (type) {
             // ── 0: Fan Scallop ──────────────────────────────────────────
             case 0: {
-                // Fan broken into individual ribs/sections with gaps between them
-                const numRibs = 7;
+                // Fan with thin individual ribs separated by gaps
+                const numRibs = 9;
                 const base: [number, number] = [0.5, 0.0];
-                const fanRadius = 0.85;
-                const ribWidth = 0.035; // narrow ribs with gaps
+                const fanRadius = 0.82;
+                const ribWidth = 0.018; // very thin ribs
 
-                // Draw individual rib sections (thin wedge shapes radiating from base)
+                // Draw thin rib outlines radiating from base
                 for (let i = 0; i < numRibs; i++) {
                     const t = (i + 0.5) / numRibs;
                     const angle = Math.PI * t;
-                    const outerU = 0.5 - 0.5 * Math.cos(angle);
+                    const outerU = 0.5 - 0.48 * Math.cos(angle);
                     const outerV = fanRadius * Math.sin(angle);
-                    // Direction from base to tip
                     const dx = outerU - base[0];
                     const dy = outerV - base[1];
                     const len = Math.sqrt(dx * dx + dy * dy);
                     const nx = -dy / len;
                     const ny = dx / len;
 
-                    // Each rib is a thin elongated shape
+                    // Thin elongated rib shape
                     const rib: [number, number][] = [
-                        [base[0] - nx * ribWidth * 0.3, base[1] - ny * ribWidth * 0.3],
-                        [outerU - nx * ribWidth, outerV - ny * ribWidth],
-                        [outerU, outerV + 0.02], // rounded tip
+                        [base[0], base[1]],
+                        [base[0] + dx * 0.15 + nx * ribWidth * 0.5, base[1] + dy * 0.15 + ny * ribWidth * 0.5],
                         [outerU + nx * ribWidth, outerV + ny * ribWidth],
-                        [base[0] + nx * ribWidth * 0.3, base[1] + ny * ribWidth * 0.3],
+                        [outerU, outerV],
+                        [outerU - nx * ribWidth, outerV - ny * ribWidth],
+                        [base[0] + dx * 0.15 - nx * ribWidth * 0.5, base[1] + dy * 0.15 - ny * ribWidth * 0.5],
                     ];
 
                     if (filled) {
-                        // Alternate between filled and opaque-outline for visual variety
-                        drawUV(rib, i % 2 === 0 ? 'filled' : 'opaque-outline');
+                        // Only fill every other rib for lighter coverage
+                        drawUV(rib, i % 3 === 0 ? 'filled' : 'outline');
                     } else {
                         drawUV(rib, 'outline');
                     }
                 }
 
-                // Radiating detail lines between ribs (thinner guide lines)
+                // Radiating line between each rib (light structural lines)
                 for (let i = 0; i <= numRibs; i++) {
                     const t = i / numRibs;
                     const angle = Math.PI * t;
-                    const outerU = 0.5 - 0.5 * Math.cos(angle);
+                    const outerU = 0.5 - 0.48 * Math.cos(angle);
                     const outerV = fanRadius * Math.sin(angle);
                     drawUV([base, [outerU, outerV]], 'line');
                 }
 
-                // Inner arc at 40% radius for structural detail
+                // Inner arc at ~30% radius
                 const innerArc: [number, number][] = [];
-                for (let i = 0; i <= 16; i++) {
-                    const t = i / 16;
+                for (let i = 0; i <= 20; i++) {
+                    const t = i / 20;
                     const angle = Math.PI * t;
-                    const u = 0.5 - 0.2 * Math.cos(angle);
-                    const v = 0.35 * Math.sin(angle);
-                    innerArc.push([u, v]);
+                    innerArc.push([0.5 - 0.18 * Math.cos(angle), 0.28 * Math.sin(angle)]);
                 }
                 drawUV(innerArc, 'line');
 
-                // Middle arc at 60% radius
+                // Middle arc at ~55% radius
                 const midArc: [number, number][] = [];
-                for (let i = 0; i <= 16; i++) {
-                    const t = i / 16;
+                for (let i = 0; i <= 20; i++) {
+                    const t = i / 20;
                     const angle = Math.PI * t;
-                    const u = 0.5 - 0.32 * Math.cos(angle);
-                    const v = 0.55 * Math.sin(angle);
-                    midArc.push([u, v]);
+                    midArc.push([0.5 - 0.30 * Math.cos(angle), 0.48 * Math.sin(angle)]);
                 }
                 drawUV(midArc, 'line');
 
-                // Decorative small scallops along the outer fan arc edge
-                for (let i = 0; i < 6; i++) {
-                    const t0 = i / 6;
-                    const t1 = (i + 1) / 6;
+                // Outer arc at ~75% radius
+                const outerArc: [number, number][] = [];
+                for (let i = 0; i <= 20; i++) {
+                    const t = i / 20;
+                    const angle = Math.PI * t;
+                    outerArc.push([0.5 - 0.42 * Math.cos(angle), 0.68 * Math.sin(angle)]);
+                }
+                drawUV(outerArc, 'line');
+
+                // Decorative small scallops along the outer fan edge
+                const scallopCount = 8;
+                for (let i = 0; i < scallopCount; i++) {
+                    const t0 = i / scallopCount;
+                    const t1 = (i + 1) / scallopCount;
                     const miniArc: [number, number][] = [];
                     for (let j = 0; j <= 5; j++) {
                         const t = t0 + (t1 - t0) * (j / 5);
                         const angle = Math.PI * t;
-                        const u = 0.5 - 0.5 * Math.cos(angle);
+                        const u = 0.5 - 0.48 * Math.cos(angle);
                         const v = fanRadius * Math.sin(angle);
-                        const nudge = 0.04 * Math.sin(Math.PI * (j / 5));
+                        const nudge = 0.035 * Math.sin(Math.PI * (j / 5));
                         miniArc.push([u, v + nudge]);
                     }
                     drawUV(miniArc, 'line');
                 }
 
-                // Small dots at the tips of each rib
+                // Tiny dots at rib tips
                 for (let i = 0; i < numRibs; i++) {
                     const t = (i + 0.5) / numRibs;
                     const angle = Math.PI * t;
-                    const u = 0.5 - 0.5 * Math.cos(angle);
+                    const u = 0.5 - 0.48 * Math.cos(angle);
                     const v = fanRadius * Math.sin(angle);
-                    drawUV(circlePoints(u, v, 0.02, 6), 'filled');
+                    drawUV(circlePoints(u, v, 0.015, 6), 'filled');
                 }
 
                 // Small filled dot at the base
-                drawUV(circlePoints(0.5, 0.0, 0.03, 8), 'filled');
+                drawUV(circlePoints(0.5, 0.0, 0.025, 8), 'filled');
                 break;
             }
 

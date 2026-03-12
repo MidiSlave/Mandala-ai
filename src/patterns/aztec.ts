@@ -5,67 +5,128 @@ const aztecPatterns: PatternSet = {
     count: 5,
     draw: (type: number, { drawUV, filled, baseStyle }: PatternContext) => {
         switch (type) {
-            case 0: { // Stepped pyramid — symmetric zigzag steps with internal details
-                // Left half of pyramid steps (mirrored)
+            case 0: { // Stepped pyramid — centered symmetric zigzag steps with internal details
+                // Main pyramid body with stepped outline
                 drawUV([
-                    [0.08, 0.0], [0.92, 0.0],   // base
-                    [0.92, 0.12], [0.78, 0.12],  // first step right
-                    [0.78, 0.28], [0.68, 0.28],  // second step right
-                    [0.68, 0.45], [0.58, 0.45],  // third step right
-                    [0.58, 0.62], [0.54, 0.62],  // fourth step right
-                    [0.54, 0.82], [0.46, 0.82],  // peak
-                    [0.46, 0.62], [0.42, 0.62],  // fourth step left
-                    [0.42, 0.45], [0.32, 0.45],  // third step left
-                    [0.32, 0.28], [0.22, 0.28],  // second step left
-                    [0.22, 0.12], [0.08, 0.12],  // first step left
+                    [0.05, 0.0], [0.95, 0.0],    // base
+                    [0.95, 0.15], [0.80, 0.15],   // step 1 right
+                    [0.80, 0.30], [0.70, 0.30],   // step 2 right
+                    [0.70, 0.48], [0.62, 0.48],   // step 3 right
+                    [0.62, 0.65], [0.56, 0.65],   // step 4 right
+                    [0.56, 0.80], [0.44, 0.80],   // peak plateau
+                    [0.44, 0.65], [0.38, 0.65],   // step 4 left
+                    [0.38, 0.48], [0.30, 0.48],   // step 3 left
+                    [0.30, 0.30], [0.20, 0.30],   // step 2 left
+                    [0.20, 0.15], [0.05, 0.15],   // step 1 left
                 ], baseStyle);
 
-                // Temple top / capstone
+                // Temple capstone on top
                 drawUV([
-                    [0.44, 0.82], [0.56, 0.82],
-                    [0.56, 0.92], [0.44, 0.92],
+                    [0.42, 0.80], [0.58, 0.80],
+                    [0.58, 0.92], [0.42, 0.92],
                 ], filled ? 'opaque-outline' : 'outline');
 
-                // Horizontal decorative lines on steps
-                drawUV([[0.12, 0.06], [0.88, 0.06]], 'line');
-                drawUV([[0.25, 0.2], [0.75, 0.2]], 'line');
-                drawUV([[0.35, 0.36], [0.65, 0.36]], 'line');
-                drawUV([[0.44, 0.53], [0.56, 0.53]], 'line');
+                // Capstone inner diamond
+                drawUV([
+                    [0.50, 0.82], [0.55, 0.86],
+                    [0.50, 0.90], [0.45, 0.86],
+                ], filled ? baseStyle : 'filled');
+
+                // Horizontal step accent lines
+                drawUV([[0.08, 0.07], [0.92, 0.07]], 'line');
+                drawUV([[0.23, 0.22], [0.77, 0.22]], 'line');
+                drawUV([[0.33, 0.39], [0.67, 0.39]], 'line');
+                drawUV([[0.40, 0.56], [0.60, 0.56]], 'line');
+                drawUV([[0.46, 0.72], [0.54, 0.72]], 'line');
+
+                // Vertical center spine
+                drawUV([[0.50, 0.0], [0.50, 0.80]], 'line');
 
                 if (filled) {
-                    // Cut out doorway at base center
+                    // Doorway cutout at base center
                     drawUV([
-                        [0.42, 0.0], [0.58, 0.0],
-                        [0.58, 0.1], [0.42, 0.1],
+                        [0.40, 0.0], [0.60, 0.0],
+                        [0.60, 0.12], [0.40, 0.12],
                     ], 'opaque-outline');
-                    // Cut out windows on second step
+                    // Window cutouts on step 2
                     drawUV([
-                        [0.3, 0.3], [0.38, 0.3],
-                        [0.38, 0.42], [0.3, 0.42],
+                        [0.24, 0.32], [0.32, 0.32],
+                        [0.32, 0.44], [0.24, 0.44],
                     ], 'opaque-outline');
                     drawUV([
-                        [0.62, 0.3], [0.7, 0.3],
-                        [0.7, 0.42], [0.62, 0.42],
+                        [0.68, 0.32], [0.76, 0.32],
+                        [0.76, 0.44], [0.68, 0.44],
                     ], 'opaque-outline');
+                    // Small diamond cutouts on step 1
+                    drawUV([
+                        [0.14, 0.04], [0.18, 0.08],
+                        [0.14, 0.12], [0.10, 0.08],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.86, 0.04], [0.90, 0.08],
+                        [0.86, 0.12], [0.82, 0.08],
+                    ], 'opaque-outline');
+                } else {
+                    // In outline mode, add filled accent shapes for visibility
+                    drawUV([
+                        [0.14, 0.04], [0.18, 0.08],
+                        [0.14, 0.12], [0.10, 0.08],
+                    ], 'filled');
+                    drawUV([
+                        [0.86, 0.04], [0.90, 0.08],
+                        [0.86, 0.12], [0.82, 0.08],
+                    ], 'filled');
+                    // Filled squares at step corners
+                    drawUV([
+                        [0.24, 0.32], [0.32, 0.32],
+                        [0.32, 0.44], [0.24, 0.44],
+                    ], 'filled');
+                    drawUV([
+                        [0.68, 0.32], [0.76, 0.32],
+                        [0.76, 0.44], [0.68, 0.44],
+                    ], 'filled');
+                    // Filled doorway block at base
+                    drawUV([
+                        [0.40, 0.0], [0.60, 0.0],
+                        [0.60, 0.12], [0.40, 0.12],
+                    ], 'filled');
+                    // Step fill bands for outline visibility
+                    drawUV([
+                        [0.34, 0.50], [0.66, 0.50],
+                        [0.66, 0.56], [0.34, 0.56],
+                    ], 'filled');
+                }
+
+                // Stair-edge dots (small filled squares on each step edge)
+                const dotSize = 0.025;
+                const stepEdges: [number, number][] = [
+                    [0.80, 0.15], [0.20, 0.15],
+                    [0.70, 0.30], [0.30, 0.30],
+                    [0.62, 0.48], [0.38, 0.48],
+                ];
+                for (const [su, sv] of stepEdges) {
+                    drawUV([
+                        [su - dotSize, sv - dotSize], [su + dotSize, sv - dotSize],
+                        [su + dotSize, sv + dotSize], [su - dotSize, sv + dotSize],
+                    ], 'filled');
                 }
                 break;
             }
 
-            case 1: { // Sun disk — concentric rings with triangular rays
-                // Outer sun rays (8 triangular rays around the edge)
-                const numRays = 8;
+            case 1: { // Sun disk — concentric rings with radiating triangular rays
+                const cx = 0.5, cy = 0.5;
+
+                // Outer ray ring: 10 triangular rays
+                const numRays = 10;
                 for (let i = 0; i < numRays; i++) {
                     const angle = (i / numRays) * Math.PI * 2;
-                    const nextAngle = ((i + 0.5) / numRays) * Math.PI * 2;
-                    const prevAngle = ((i - 0.5) / numRays) * Math.PI * 2;
-                    // Ray tip
-                    const tipU = 0.5 + 0.46 * Math.cos(angle);
-                    const tipV = 0.5 + 0.46 * Math.sin(angle);
-                    // Ray base points
-                    const baseU1 = 0.5 + 0.28 * Math.cos(prevAngle);
-                    const baseV1 = 0.5 + 0.28 * Math.sin(prevAngle);
-                    const baseU2 = 0.5 + 0.28 * Math.cos(nextAngle);
-                    const baseV2 = 0.5 + 0.28 * Math.sin(nextAngle);
+                    const halfAngle = (0.3 / numRays) * Math.PI * 2;
+                    const tipU = cx + 0.47 * Math.cos(angle);
+                    const tipV = cy + 0.47 * Math.sin(angle);
+                    const baseU1 = cx + 0.30 * Math.cos(angle - halfAngle);
+                    const baseV1 = cy + 0.30 * Math.sin(angle - halfAngle);
+                    const baseU2 = cx + 0.30 * Math.cos(angle + halfAngle);
+                    const baseV2 = cy + 0.30 * Math.sin(angle + halfAngle);
                     drawUV([
                         [tipU, tipV],
                         [baseU1, baseV1],
@@ -73,288 +134,379 @@ const aztecPatterns: PatternSet = {
                     ], baseStyle);
                 }
 
-                // Outer ring
-                const outerRing: [number, number][] = [];
-                const innerRingOuter: [number, number][] = [];
+                // Outer ring band (ring between r=0.26 and r=0.32)
+                const outerBandOuter: [number, number][] = [];
+                const outerBandInner: [number, number][] = [];
+                const segments = 20;
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    outerBandOuter.push([cx + 0.32 * Math.cos(angle), cy + 0.32 * Math.sin(angle)]);
+                    outerBandInner.push([cx + 0.26 * Math.cos(angle), cy + 0.26 * Math.sin(angle)]);
+                }
+                drawUV(outerBandOuter, filled ? 'opaque-outline' : 'outline');
+                drawUV(outerBandInner, filled ? baseStyle : 'outline');
+
+                // Middle ring (r=0.18)
+                const middleRing: [number, number][] = [];
                 for (let i = 0; i < 16; i++) {
                     const angle = (i / 16) * Math.PI * 2;
-                    outerRing.push([0.5 + 0.3 * Math.cos(angle), 0.5 + 0.3 * Math.sin(angle)]);
-                    innerRingOuter.push([0.5 + 0.22 * Math.cos(angle), 0.5 + 0.22 * Math.sin(angle)]);
+                    middleRing.push([cx + 0.18 * Math.cos(angle), cy + 0.18 * Math.sin(angle)]);
                 }
-                drawUV(outerRing, filled ? 'opaque-outline' : 'outline');
-                drawUV(innerRingOuter, filled ? baseStyle : 'outline');
+                drawUV(middleRing, filled ? 'opaque-outline' : 'outline');
 
-                // Center filled circle
-                const center: [number, number][] = [];
+                // Central filled circle (r=0.10)
+                const centerCircle: [number, number][] = [];
                 for (let i = 0; i < 12; i++) {
                     const angle = (i / 12) * Math.PI * 2;
-                    center.push([0.5 + 0.1 * Math.cos(angle), 0.5 + 0.1 * Math.sin(angle)]);
+                    centerCircle.push([cx + 0.10 * Math.cos(angle), cy + 0.10 * Math.sin(angle)]);
                 }
-                drawUV(center, filled ? 'opaque-outline' : 'filled');
+                drawUV(centerCircle, filled ? 'opaque-outline' : 'filled');
 
-                // Inner cross lines for detail
-                drawUV([[0.5, 0.3], [0.5, 0.7]], 'line');
-                drawUV([[0.3, 0.5], [0.7, 0.5]], 'line');
-                drawUV([[0.36, 0.36], [0.64, 0.64]], 'line');
-                drawUV([[0.64, 0.36], [0.36, 0.64]], 'line');
+                // Inner cross detail (4-pointed star through center)
+                drawUV([[cx, cy - 0.18], [cx, cy + 0.18]], 'line');
+                drawUV([[cx - 0.18, cy], [cx + 0.18, cy]], 'line');
+
+                // Diagonal accent lines between rings
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const u1 = cx + 0.19 * Math.cos(angle);
+                    const v1 = cy + 0.19 * Math.sin(angle);
+                    const u2 = cx + 0.25 * Math.cos(angle);
+                    const v2 = cy + 0.25 * Math.sin(angle);
+                    drawUV([[u1, v1], [u2, v2]], 'line');
+                }
+
+                // Corner accent squares (fills corners that the circle doesn't reach)
+                const cornerDots: [number, number][] = [
+                    [0.06, 0.06], [0.94, 0.06], [0.06, 0.94], [0.94, 0.94]
+                ];
+                const cdot = 0.04;
+                for (const [du, dv] of cornerDots) {
+                    drawUV([
+                        [du - cdot, dv - cdot], [du + cdot, dv - cdot],
+                        [du + cdot, dv + cdot], [du - cdot, dv + cdot],
+                    ], 'filled');
+                }
+
                 break;
             }
 
             case 2: { // Jaguar eye — oval eye with diamond pupil and decorative marks
-                // Outer eye shape (almond/oval)
+                // Upper eyelid curve
                 drawUV([
-                    [0.02, 0.5],
-                    [0.12, 0.35],
-                    [0.25, 0.25],
-                    [0.4, 0.2],
-                    [0.5, 0.18],
-                    [0.6, 0.2],
-                    [0.75, 0.25],
-                    [0.88, 0.35],
-                    [0.98, 0.5],
-                    [0.88, 0.65],
-                    [0.75, 0.75],
-                    [0.6, 0.8],
-                    [0.5, 0.82],
-                    [0.4, 0.8],
-                    [0.25, 0.75],
-                    [0.12, 0.65],
+                    [0.02, 0.50],
+                    [0.10, 0.38], [0.20, 0.28], [0.32, 0.22],
+                    [0.50, 0.18],
+                    [0.68, 0.22], [0.80, 0.28], [0.90, 0.38],
+                    [0.98, 0.50],
+                    [0.90, 0.62], [0.80, 0.72], [0.68, 0.78],
+                    [0.50, 0.82],
+                    [0.32, 0.78], [0.20, 0.72], [0.10, 0.62],
                 ], baseStyle);
 
-                // Iris circle
-                const iris: [number, number][] = [];
-                for (let i = 0; i < 12; i++) {
-                    const angle = (i / 12) * Math.PI * 2;
-                    iris.push([0.5 + 0.15 * Math.cos(angle), 0.5 + 0.18 * Math.sin(angle)]);
+                // Iris ring (polygon approximation of ellipse)
+                const irisPoints: [number, number][] = [];
+                for (let i = 0; i < 16; i++) {
+                    const angle = (i / 16) * Math.PI * 2;
+                    irisPoints.push([0.50 + 0.16 * Math.cos(angle), 0.50 + 0.18 * Math.sin(angle)]);
                 }
-                drawUV(iris, filled ? 'opaque-outline' : 'outline');
+                drawUV(irisPoints, filled ? 'opaque-outline' : 'outline');
 
                 // Diamond pupil
                 drawUV([
-                    [0.5, 0.38],
-                    [0.58, 0.5],
-                    [0.5, 0.62],
-                    [0.42, 0.5],
+                    [0.50, 0.36],
+                    [0.60, 0.50],
+                    [0.50, 0.64],
+                    [0.40, 0.50],
                 ], filled ? baseStyle : 'filled');
 
-                // Brow lines above eye (decorative)
+                // Inner pupil highlight (tiny cutout)
+                if (filled) {
+                    drawUV([
+                        [0.50, 0.44], [0.54, 0.50],
+                        [0.50, 0.56], [0.46, 0.50],
+                    ], 'opaque-outline');
+                }
+
+                // Decorative brow arches (double line for thickness)
                 drawUV([
-                    [0.15, 0.12], [0.3, 0.08], [0.5, 0.06],
-                    [0.7, 0.08], [0.85, 0.12],
+                    [0.10, 0.14], [0.25, 0.08], [0.40, 0.04],
+                    [0.60, 0.04], [0.75, 0.08], [0.90, 0.14],
                 ], 'line');
                 drawUV([
-                    [0.2, 0.04], [0.4, 0.0], [0.6, 0.0], [0.8, 0.04],
+                    [0.12, 0.10], [0.27, 0.05], [0.42, 0.01],
+                    [0.58, 0.01], [0.73, 0.05], [0.88, 0.10],
                 ], 'line');
 
-                // Cheek marks below eye
-                drawUV([[0.3, 0.88], [0.3, 0.96]], 'line');
-                drawUV([[0.5, 0.88], [0.5, 0.98]], 'line');
-                drawUV([[0.7, 0.88], [0.7, 0.96]], 'line');
-                // Cheek dots
-                drawUV([
-                    [0.18, 0.9], [0.22, 0.9],
-                    [0.22, 0.94], [0.18, 0.94],
-                ], baseStyle);
-                drawUV([
-                    [0.78, 0.9], [0.82, 0.9],
-                    [0.82, 0.94], [0.78, 0.94],
-                ], baseStyle);
+                // Stepped brow marks (small filled triangles along brow)
+                drawUV([[0.22, 0.06], [0.26, 0.12], [0.18, 0.12]], 'filled');
+                drawUV([[0.50, 0.02], [0.54, 0.08], [0.46, 0.08]], 'filled');
+                drawUV([[0.78, 0.06], [0.82, 0.12], [0.74, 0.12]], 'filled');
+
+                // Cheek marks below eye (vertical lines with end dots)
+                drawUV([[0.25, 0.86], [0.25, 0.96]], 'line');
+                drawUV([[0.40, 0.86], [0.40, 0.98]], 'line');
+                drawUV([[0.50, 0.86], [0.50, 0.98]], 'line');
+                drawUV([[0.60, 0.86], [0.60, 0.98]], 'line');
+                drawUV([[0.75, 0.86], [0.75, 0.96]], 'line');
+
+                // Cheek dots (symmetric)
+                const cheekDot = 0.025;
+                const cheekPositions: [number, number][] = [
+                    [0.15, 0.92], [0.85, 0.92],
+                    [0.25, 0.97], [0.75, 0.97],
+                ];
+                for (const [cu, cv] of cheekPositions) {
+                    drawUV([
+                        [cu - cheekDot, cv - cheekDot], [cu + cheekDot, cv - cheekDot],
+                        [cu + cheekDot, cv + cheekDot], [cu - cheekDot, cv + cheekDot],
+                    ], 'filled');
+                }
+
+                // Corner accents (wing marks at eye tips)
+                drawUV([[0.0, 0.48], [0.06, 0.42], [0.06, 0.58]], 'filled');
+                drawUV([[1.0, 0.48], [0.94, 0.42], [0.94, 0.58]], 'filled');
+
                 break;
             }
 
-            case 3: { // Serpent coil — S-curved body with scale segments
-                // Upper S-curve body
+            case 3: { // Serpent coil — S-curved body with overlapping scale segments
+                // Upper S-curve body (thick band)
                 drawUV([
-                    [0.1, 0.0],
-                    [0.25, 0.0],
-                    [0.4, 0.08],
-                    [0.55, 0.18],
-                    [0.7, 0.22],
-                    [0.85, 0.2],
-                    [0.95, 0.15],
-                    [0.95, 0.28],
-                    [0.85, 0.35],
-                    [0.7, 0.38],
-                    [0.55, 0.34],
-                    [0.4, 0.24],
-                    [0.25, 0.16],
-                    [0.1, 0.14],
+                    [0.08, 0.0], [0.22, 0.0],
+                    [0.38, 0.06], [0.55, 0.14],
+                    [0.72, 0.20], [0.88, 0.18],
+                    [0.96, 0.12], [0.98, 0.20],
+                    [0.96, 0.30], [0.88, 0.36],
+                    [0.72, 0.38], [0.55, 0.34],
+                    [0.38, 0.24], [0.22, 0.16],
+                    [0.08, 0.14],
                 ], baseStyle);
 
-                // Middle connector
+                // Middle connecting band (left side)
                 drawUV([
-                    [0.1, 0.14],
-                    [0.05, 0.22],
-                    [0.05, 0.38],
-                    [0.1, 0.46],
-                    [0.1, 0.52],
-                    [0.05, 0.6],
-                    [0.05, 0.76],
-                    [0.1, 0.84],
-                ], 'line');
+                    [0.08, 0.14], [0.04, 0.20],
+                    [0.02, 0.32], [0.02, 0.44],
+                    [0.04, 0.52], [0.08, 0.54],
+                    [0.16, 0.54], [0.16, 0.42],
+                    [0.14, 0.32], [0.12, 0.22],
+                ], baseStyle);
 
                 // Lower S-curve body (reversed)
                 drawUV([
-                    [0.1, 0.84],
-                    [0.25, 0.84],
-                    [0.4, 0.76],
-                    [0.55, 0.66],
-                    [0.7, 0.62],
-                    [0.85, 0.64],
-                    [0.95, 0.7],
-                    [0.95, 0.84],
-                    [0.85, 0.9],
-                    [0.7, 0.92],
-                    [0.55, 0.88],
-                    [0.4, 0.92],
-                    [0.25, 0.98],
-                    [0.1, 1.0],
+                    [0.08, 0.54], [0.22, 0.56],
+                    [0.38, 0.64], [0.55, 0.72],
+                    [0.72, 0.76], [0.88, 0.74],
+                    [0.96, 0.68], [0.98, 0.76],
+                    [0.96, 0.86], [0.88, 0.92],
+                    [0.72, 0.94], [0.55, 0.90],
+                    [0.38, 0.96], [0.22, 1.0],
+                    [0.08, 1.0], [0.08, 0.86],
+                    [0.22, 0.86], [0.38, 0.80],
+                    [0.55, 0.74], [0.55, 0.66],
+                    [0.38, 0.58], [0.22, 0.54],
                 ], baseStyle);
 
-                // Scale markings on upper body
-                for (let i = 0; i < 5; i++) {
-                    const t = 0.2 + i * 0.15;
-                    const u = 0.2 + t * 0.6;
-                    const v = 0.06 + 0.12 * Math.sin(t * Math.PI);
-                    drawUV([
-                        [u, v + 0.02],
-                        [u + 0.04, v + 0.06],
-                        [u + 0.08, v + 0.02],
-                    ], filled ? 'opaque-outline' : 'outline');
-                }
-
-                // Scale markings on lower body
-                for (let i = 0; i < 5; i++) {
-                    const t = 0.2 + i * 0.15;
-                    const u = 0.2 + t * 0.6;
-                    const v = 0.68 + 0.1 * Math.sin(t * Math.PI);
-                    drawUV([
-                        [u, v + 0.02],
-                        [u + 0.04, v + 0.08],
-                        [u + 0.08, v + 0.02],
-                    ], filled ? 'opaque-outline' : 'outline');
-                }
-
-                // Serpent head (top-left)
+                // Serpent head (top-left, visible)
                 drawUV([
-                    [0.02, 0.0], [0.1, 0.0],
-                    [0.12, 0.06], [0.08, 0.1],
-                    [0.0, 0.08],
+                    [0.0, 0.0], [0.10, 0.0],
+                    [0.14, 0.05], [0.12, 0.10],
+                    [0.06, 0.12], [0.0, 0.08],
                 ], baseStyle);
-                // Eye dot on head
+                // Eye on head
                 drawUV([
-                    [0.05, 0.02], [0.08, 0.02],
-                    [0.08, 0.05], [0.05, 0.05],
+                    [0.04, 0.03], [0.08, 0.03],
+                    [0.08, 0.07], [0.04, 0.07],
                 ], filled ? 'opaque-outline' : 'filled');
 
-                // Middle body fill section
+                // Scale marks along upper body
+                for (let i = 0; i < 6; i++) {
+                    const t = (i + 1) / 7;
+                    const su = 0.15 + t * 0.70;
+                    const sv = 0.04 + 0.18 * Math.sin(t * Math.PI);
+                    const ss = 0.035;
+                    drawUV([
+                        [su, sv], [su + ss, sv + ss * 1.5],
+                        [su + ss * 2, sv], [su + ss, sv - ss * 0.5],
+                    ], filled ? 'opaque-outline' : 'outline');
+                }
+
+                // Scale marks along lower body
+                for (let i = 0; i < 6; i++) {
+                    const t = (i + 1) / 7;
+                    const su = 0.15 + t * 0.70;
+                    const sv = 0.58 + 0.20 * Math.sin(t * Math.PI);
+                    const ss = 0.035;
+                    drawUV([
+                        [su, sv], [su + ss, sv + ss * 1.5],
+                        [su + ss * 2, sv], [su + ss, sv - ss * 0.5],
+                    ], filled ? 'opaque-outline' : 'outline');
+                }
+
+                // Center spine lines following the S-curve
                 drawUV([
-                    [0.1, 0.38], [0.25, 0.42],
-                    [0.4, 0.48], [0.55, 0.52],
-                    [0.7, 0.48], [0.85, 0.5],
-                    [0.95, 0.55], [0.95, 0.62],
-                    [0.85, 0.64], [0.7, 0.62],
-                    [0.55, 0.58], [0.4, 0.56],
-                    [0.25, 0.58], [0.1, 0.52],
-                ], baseStyle);
+                    [0.08, 0.07], [0.30, 0.13], [0.55, 0.22],
+                    [0.75, 0.27], [0.92, 0.24],
+                ], 'line');
+                drawUV([
+                    [0.08, 0.48], [0.10, 0.38], [0.08, 0.28],
+                ], 'line');
+                drawUV([
+                    [0.08, 0.70], [0.30, 0.68], [0.55, 0.78],
+                    [0.75, 0.84], [0.92, 0.80],
+                ], 'line');
+
+                if (filled) {
+                    // Cut channel between upper and lower curves
+                    drawUV([
+                        [0.20, 0.38], [0.50, 0.44],
+                        [0.80, 0.48], [0.80, 0.52],
+                        [0.50, 0.50], [0.20, 0.44],
+                    ], 'opaque-outline');
+                }
+
                 break;
             }
 
             case 4: { // Temple glyph — abstract face/mask with geometric features
-                // Outer face rectangle
+                // Outer face border (rectangular frame with stepped top)
                 drawUV([
-                    [0.12, 0.05], [0.88, 0.05],
-                    [0.88, 0.92], [0.12, 0.92],
+                    [0.10, 0.05], [0.35, 0.05],
+                    [0.35, 0.0], [0.65, 0.0],
+                    [0.65, 0.05], [0.90, 0.05],
+                    [0.90, 0.95], [0.10, 0.95],
                 ], baseStyle);
 
-                // Cut out / inner face area
                 if (filled) {
+                    // Inner face cutout
                     drawUV([
-                        [0.2, 0.12], [0.8, 0.12],
-                        [0.8, 0.85], [0.2, 0.85],
+                        [0.18, 0.12], [0.82, 0.12],
+                        [0.82, 0.88], [0.18, 0.88],
                     ], 'opaque-outline');
                 }
 
-                // Left eye (rectangular with inner detail)
+                // Left eye (stepped rectangle)
                 drawUV([
-                    [0.22, 0.2], [0.42, 0.2],
-                    [0.42, 0.38], [0.22, 0.38],
+                    [0.20, 0.18], [0.30, 0.18],
+                    [0.32, 0.20], [0.40, 0.20],
+                    [0.40, 0.38], [0.32, 0.38],
+                    [0.30, 0.40], [0.20, 0.40],
                 ], baseStyle);
+
+                // Right eye (stepped rectangle, mirrored)
+                drawUV([
+                    [0.60, 0.20], [0.68, 0.20],
+                    [0.70, 0.18], [0.80, 0.18],
+                    [0.80, 0.40], [0.70, 0.40],
+                    [0.68, 0.38], [0.60, 0.38],
+                ], baseStyle);
+
                 // Left pupil
                 drawUV([
-                    [0.28, 0.25], [0.36, 0.25],
-                    [0.36, 0.33], [0.28, 0.33],
+                    [0.26, 0.26], [0.34, 0.26],
+                    [0.34, 0.34], [0.26, 0.34],
                 ], filled ? 'opaque-outline' : 'filled');
 
-                // Right eye (rectangular with inner detail)
-                drawUV([
-                    [0.58, 0.2], [0.78, 0.2],
-                    [0.78, 0.38], [0.58, 0.38],
-                ], baseStyle);
                 // Right pupil
                 drawUV([
-                    [0.64, 0.25], [0.72, 0.25],
-                    [0.72, 0.33], [0.64, 0.33],
+                    [0.66, 0.26], [0.74, 0.26],
+                    [0.74, 0.34], [0.66, 0.34],
                 ], filled ? 'opaque-outline' : 'filled');
 
                 // Triangular nose
                 drawUV([
-                    [0.5, 0.32],
-                    [0.56, 0.52],
-                    [0.44, 0.52],
+                    [0.50, 0.34],
+                    [0.58, 0.54],
+                    [0.42, 0.54],
                 ], baseStyle);
-                // Nose cutout
                 if (filled) {
                     drawUV([
-                        [0.5, 0.38],
-                        [0.53, 0.48],
-                        [0.47, 0.48],
+                        [0.50, 0.40],
+                        [0.54, 0.50],
+                        [0.46, 0.50],
                     ], 'opaque-outline');
                 }
+                // Nose bridge line
+                drawUV([[0.50, 0.20], [0.50, 0.34]], 'line');
 
                 // Step-pattern mouth
                 drawUV([
-                    [0.25, 0.58], [0.35, 0.58],
-                    [0.35, 0.64], [0.42, 0.64],
-                    [0.42, 0.7], [0.58, 0.7],
-                    [0.58, 0.64], [0.65, 0.64],
-                    [0.65, 0.58], [0.75, 0.58],
-                    [0.75, 0.76], [0.25, 0.76],
+                    [0.22, 0.60], [0.32, 0.60],
+                    [0.32, 0.64], [0.40, 0.64],
+                    [0.40, 0.68], [0.60, 0.68],
+                    [0.60, 0.64], [0.68, 0.64],
+                    [0.68, 0.60], [0.78, 0.60],
+                    [0.78, 0.78], [0.22, 0.78],
                 ], baseStyle);
+
                 if (filled) {
-                    // Teeth gap cutouts
+                    // Teeth gaps
                     drawUV([
-                        [0.35, 0.7], [0.42, 0.7],
-                        [0.42, 0.74], [0.35, 0.74],
+                        [0.30, 0.70], [0.38, 0.70],
+                        [0.38, 0.76], [0.30, 0.76],
                     ], 'opaque-outline');
                     drawUV([
-                        [0.58, 0.7], [0.65, 0.7],
-                        [0.65, 0.74], [0.58, 0.74],
+                        [0.46, 0.70], [0.54, 0.70],
+                        [0.54, 0.76], [0.46, 0.76],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.62, 0.70], [0.70, 0.70],
+                        [0.70, 0.76], [0.62, 0.76],
                     ], 'opaque-outline');
                 }
 
-                // Forehead band
-                drawUV([
-                    [0.12, 0.05], [0.88, 0.05],
-                    [0.88, 0.14], [0.12, 0.14],
-                ], baseStyle);
-                // Forehead glyphs
-                drawUV([[0.3, 0.07], [0.35, 0.12], [0.25, 0.12]], filled ? 'opaque-outline' : 'outline');
-                drawUV([[0.5, 0.07], [0.55, 0.12], [0.45, 0.12]], filled ? 'opaque-outline' : 'outline');
-                drawUV([[0.7, 0.07], [0.75, 0.12], [0.65, 0.12]], filled ? 'opaque-outline' : 'outline');
+                // Horizontal mouth accent
+                drawUV([[0.26, 0.69], [0.74, 0.69]], 'line');
 
-                // Ear decorations
+                // Forehead band with glyphs
                 drawUV([
-                    [0.05, 0.25], [0.12, 0.2],
-                    [0.12, 0.4], [0.05, 0.35],
+                    [0.10, 0.05], [0.90, 0.05],
+                    [0.90, 0.14], [0.10, 0.14],
+                ], baseStyle);
+                // Forehead triangular glyphs
+                drawUV([[0.25, 0.06], [0.30, 0.12], [0.20, 0.12]], filled ? 'opaque-outline' : 'outline');
+                drawUV([[0.50, 0.06], [0.55, 0.12], [0.45, 0.12]], filled ? 'opaque-outline' : 'outline');
+                drawUV([[0.75, 0.06], [0.80, 0.12], [0.70, 0.12]], filled ? 'opaque-outline' : 'outline');
+
+                // Ear decorations (stepped shapes)
+                drawUV([
+                    [0.04, 0.22], [0.10, 0.18],
+                    [0.10, 0.44], [0.04, 0.40],
                 ], baseStyle);
                 drawUV([
-                    [0.88, 0.2], [0.95, 0.25],
-                    [0.95, 0.35], [0.88, 0.4],
+                    [0.90, 0.18], [0.96, 0.22],
+                    [0.96, 0.40], [0.90, 0.44],
                 ], baseStyle);
 
-                // Chin decoration
-                drawUV([[0.4, 0.92], [0.5, 0.98], [0.6, 0.92]], baseStyle);
+                // Ear inner dots
+                drawUV([
+                    [0.05, 0.28], [0.09, 0.28],
+                    [0.09, 0.34], [0.05, 0.34],
+                ], filled ? 'opaque-outline' : 'filled');
+                drawUV([
+                    [0.91, 0.28], [0.95, 0.28],
+                    [0.95, 0.34], [0.91, 0.34],
+                ], filled ? 'opaque-outline' : 'filled');
+
+                // Chin pendant
+                drawUV([
+                    [0.40, 0.88], [0.50, 0.98],
+                    [0.60, 0.88],
+                ], baseStyle);
+                // Chin dots
+                drawUV([
+                    [0.32, 0.90], [0.36, 0.90],
+                    [0.36, 0.94], [0.32, 0.94],
+                ], 'filled');
+                drawUV([
+                    [0.64, 0.90], [0.68, 0.90],
+                    [0.68, 0.94], [0.64, 0.94],
+                ], 'filled');
+
+                // Cheek accent lines
+                drawUV([[0.18, 0.46], [0.18, 0.56]], 'line');
+                drawUV([[0.82, 0.46], [0.82, 0.56]], 'line');
+
                 break;
             }
         }
