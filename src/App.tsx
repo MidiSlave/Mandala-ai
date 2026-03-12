@@ -532,8 +532,8 @@ export default function App() {
     };
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-manipulation">
-            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
+        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
+            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
 
             <button 
                 onPointerDown={(e) => { e.stopPropagation(); setUiVisible(v => !v); }}
