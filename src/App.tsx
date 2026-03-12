@@ -12,6 +12,25 @@ function mulberry32(a: number) {
     }
 }
 
+// --- Fullscreen helpers (cross-browser + iPad Safari) ---
+function getFullscreenElement(): Element | null {
+    return document.fullscreenElement
+        || (document as any).webkitFullscreenElement
+        || null;
+}
+
+function requestFullscreen(el: HTMLElement): Promise<void> {
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if ((el as any).webkitRequestFullscreen) return (el as any).webkitRequestFullscreen();
+    return Promise.reject(new Error('Fullscreen API not supported'));
+}
+
+function exitFullscreen(): Promise<void> {
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if ((document as any).webkitExitFullscreen) return (document as any).webkitExitFullscreen();
+    return Promise.reject(new Error('Fullscreen API not supported'));
+}
+
 // --- Types & Config ---
 interface AppConfig {
     symmetry: number;
@@ -21,6 +40,7 @@ interface AppConfig {
     twist: number;
     seed: number;
     spinSpeed: number;
+    spinVariance: number;
     waveSpeed: number;
     zoomSpeed: number;
     zoom: number;
@@ -34,6 +54,7 @@ const DEFAULT_CONFIG: AppConfig = {
     twist: 0,
     seed: 42,
     spinSpeed: 1,
+    spinVariance: 0.8,
     waveSpeed: 1,
     zoomSpeed: 0.3,
     zoom: 0
@@ -48,12 +69,14 @@ function tunnelRadius(t: number, maxR: number): number {
 }
 
 export default function App() {
+    const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [uiVisible, setUiVisible] = useState(true);
     const [isAutoAnimating, setIsAutoAnimating] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
+    const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
 
@@ -180,16 +203,18 @@ export default function App() {
         };
 
         // Draw layers from outside in
-        // Each layer l (1..layers) maps to a position along the tunnel
-        // Normalized position t = (l + offset) / (layers + 1)
-        // Exponential radius: tunnelRadius(t) compresses inner layers
+        let prevType = -1;
         for (let l = layers; l >= 1; l--) {
-            const layerId = l + shift; // unique identity for deterministic patterns
+            const layerId = l + shift;
             const layerRng = mulberry32(config.seed + layerId * 999);
-            const type = Math.floor(layerRng() * 5);
+            // Pick pattern type, reroll if same as previous layer
+            let type = Math.floor(layerRng() * 5);
+            if (type === prevType) type = (type + 1 + Math.floor(layerRng() * 4)) % 5;
+            prevType = type;
             const filled = layerRng() > 0.5;
-            // Per-layer spin direction: -1 or +1, deterministic from seed
+            // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
+            const speedOffset = (layerRng() - 0.5) * 2; // [-1, 1]
 
             // Normalized positions along the tunnel
             const t1 = (l - 1 + offset) / (layers + 1);
@@ -199,13 +224,13 @@ export default function App() {
             let r1 = tunnelRadius(t1, maxR);
             let r2 = tunnelRadius(t2, maxR);
 
-            if (r2 <= 0.5) continue; // too small to see
+            if (r2 <= 0.5) continue;
 
             // Ring thickness — skip drawing motifs if too thin
             const thickness = r2 - r1;
             const tooThin = thickness < 3;
 
-            // Reactive Bulge: if pointer is near this layer, expand it slightly
+            // Reactive Bulge
             const midR = (r1 + r2) / 2;
             const distToLayer = Math.abs(activePointerDist - midR);
             let bulge = 0;
@@ -215,20 +240,20 @@ export default function App() {
             r2 += bulge;
             if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
-            // Mask interior to clip the outer layer's inward bleed
+            // Mask interior
             ctx.fillStyle = '#EBE7E0';
             ctx.beginPath();
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Twist: each layer spins its own direction
-            // Inner layers (small t) twist faster
+            // Per-layer twist with variance:
+            // Each layer spins at its own speed = base * direction * (1 + variance * offset)
             const twistMag = 1 / (t2 * 3 + 0.3);
-            const layerTwist = config.twist * twistMag * spinDir;
+            const layerSpeedMul = spinDir * (1.0 + config.spinVariance * speedOffset);
+            const layerTwist = config.twist * twistMag * layerSpeedMul;
 
-            // Draw a separator ring between layers
+            // Draw separator ring
             ctx.save();
-            // Fade inner rings' opacity as they compress
             const alpha = Math.min(1, thickness / 8);
             ctx.globalAlpha = alpha;
 
@@ -250,9 +275,8 @@ export default function App() {
                         drawRoughPath(pts, style, layerRng);
                     };
 
-                    // Aztec / Mayan Motifs mapped to UV space
                     switch (type) {
-                        case 0: // Stepped Pyramid (Chakana half)
+                        case 0:
                             drawUV([
                                 [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25],
                                 [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75],
@@ -260,7 +284,7 @@ export default function App() {
                             ], baseStyle);
                             break;
 
-                        case 1: // Mayan Glyph Block (Square with inner details)
+                        case 1:
                             drawUV([[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]], baseStyle);
                             if (!filled) {
                                 drawUV([[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]], 'filled');
@@ -269,7 +293,7 @@ export default function App() {
                             }
                             break;
 
-                        case 2: // Sun Rays (Triangles with hatching)
+                        case 2:
                             drawUV([[0.1, 0], [0.9, 0], [0.5, 0.9]], baseStyle);
                             if (!filled) {
                                 drawUV([[0.3, 0.2], [0.7, 0.2]], 'line');
@@ -278,7 +302,7 @@ export default function App() {
                             }
                             break;
 
-                        case 3: // Aztec Fret (Meander)
+                        case 3:
                             if (filled) {
                                 drawUV([
                                     [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8],
@@ -292,7 +316,7 @@ export default function App() {
                             }
                             break;
 
-                        case 4: // Interlocking Teeth
+                        case 4:
                             drawUV([[0, 0], [0.5, 0.8], [1, 0]], baseStyle);
                             drawUV([[0, 1], [0.5, 0.2], [1, 1]], filled ? 'opaque-outline' : 'filled');
                             break;
@@ -302,15 +326,13 @@ export default function App() {
                 }
             }
 
-            ctx.restore(); // restore globalAlpha
+            ctx.restore();
         }
 
-        // Dense center: fill the innermost area with dark to simulate
-        // infinitely compressed rings disappearing into a vanishing point
+        // Dense center vanishing point
         const innermostT = offset / (layers + 1);
         const innermostR = tunnelRadius(innermostT, maxR);
         if (innermostR > 0.5) {
-            // Gradient from paper color at edge to dark at center
             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, innermostR);
             grad.addColorStop(0, 'rgba(26, 24, 24, 0.85)');
             grad.addColorStop(0.4, 'rgba(26, 24, 24, 0.5)');
@@ -321,7 +343,6 @@ export default function App() {
             ctx.arc(0, 0, innermostR, 0, Math.PI * 2);
             ctx.fill();
 
-            // Add concentric ring hints for density
             const coreRng = mulberry32(config.seed + shift * 7);
             ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
             ctx.lineWidth = 0.5;
@@ -335,7 +356,7 @@ export default function App() {
 
         ctx.restore();
 
-        // Add subtle grain overlay
+        // Grain overlay
         ctx.fillStyle = 'rgba(0,0,0,0.03)';
         for(let i=0; i<1500; i++) {
             ctx.fillRect(Math.random()*width, Math.random()*height, 1.5, 1.5);
@@ -374,13 +395,17 @@ export default function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // --- Fullscreen Change Listener ---
+    // --- Fullscreen Change Listener (standard + webkit) ---
     useEffect(() => {
         const onFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+            setIsFullscreen(!!getFullscreenElement());
         };
         document.addEventListener('fullscreenchange', onFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+        };
     }, []);
 
     // --- Gesture Handlers ---
@@ -438,11 +463,11 @@ export default function App() {
                 const touch = e.touches[0];
                 const startTouch = touchesRef.current.get(touch.identifier);
                 if (startTouch) {
-                    const dx = touch.clientX - startTouch.x;
-                    const dy = touch.clientY - startTouch.y;
+                    const tdx = touch.clientX - startTouch.x;
+                    const tdy = touch.clientY - startTouch.y;
 
-                    configRef.current.twist = initialConfigRef.current.twist + dx * 0.01;
-                    configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - dy * 0.05));
+                    configRef.current.twist = initialConfigRef.current.twist + tdx * 0.01;
+                    configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - tdy * 0.05));
                     isDirtyRef.current = true;
                 }
             } else if (e.touches.length === 2) {
@@ -452,7 +477,6 @@ export default function App() {
                 const currentAngle = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
 
                 if (initialPinchDistRef.current && initialPinchAngleRef.current) {
-                    // Pinch controls infinite zoom
                     const scale = currentDist / initialPinchDistRef.current;
                     configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale) * 2;
 
@@ -500,10 +524,10 @@ export default function App() {
             if (!isMouseDown || !initialConfigRef.current) return;
             const startTouch = touchesRef.current.get(0);
             if (startTouch) {
-                const dx = e.clientX - startTouch.x;
-                const dy = e.clientY - startTouch.y;
-                configRef.current.twist = initialConfigRef.current.twist + dx * 0.01;
-                configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - dy * 0.05));
+                const mdx = e.clientX - startTouch.x;
+                const mdy = e.clientY - startTouch.y;
+                configRef.current.twist = initialConfigRef.current.twist + mdx * 0.01;
+                configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - mdy * 0.05));
                 isDirtyRef.current = true;
             }
         };
@@ -515,7 +539,6 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            // Scroll wheel controls infinite zoom
             configRef.current.zoom -= e.deltaY * 0.003;
             isDirtyRef.current = true;
         };
@@ -565,11 +588,14 @@ export default function App() {
         autoAnimateRef.current = next;
     };
 
+    // Use onClick (not onPointerDown) — fullscreen API requires a trusted
+    // user activation event, and onClick is the most reliable across browsers
     const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
+        if (getFullscreenElement()) {
+            exitFullscreen().catch(() => {});
         } else {
-            document.exitFullscreen().catch(() => {});
+            const el = containerRef.current || document.documentElement;
+            requestFullscreen(el).catch(() => {});
         }
     };
 
@@ -586,6 +612,12 @@ export default function App() {
         configRef.current.spinSpeed = val;
     };
 
+    const handleSpinVarianceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setSpinVariance(val);
+        configRef.current.spinVariance = val;
+    };
+
     const handleWaveSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseFloat(e.target.value);
         setWaveSpeed(val);
@@ -599,7 +631,7 @@ export default function App() {
     };
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
 
             <button
@@ -612,7 +644,7 @@ export default function App() {
 
             <div className="absolute top-6 right-6 z-50 flex gap-2">
                 <button
-                    onPointerDown={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                    onClick={toggleFullscreen}
                     className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
                     title="Toggle Fullscreen"
                 >
@@ -710,6 +742,18 @@ export default function App() {
                                     </div>
                                     <div className="flex-1">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Spin Variance
+                                        </label>
+                                        <input
+                                            type="range" min="0" max="3" step="0.05"
+                                            value={spinVariance} onChange={handleSpinVarianceChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
                                             Wave Speed
                                         </label>
                                         <input
@@ -718,16 +762,16 @@ export default function App() {
                                             className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                                         />
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                        Zoom Speed
-                                    </label>
-                                    <input
-                                        type="range" min="-2" max="2" step="0.05"
-                                        value={zoomSpeed} onChange={handleZoomSpeedChange}
-                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                                    />
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Zoom Speed
+                                        </label>
+                                        <input
+                                            type="range" min="-2" max="2" step="0.05"
+                                            value={zoomSpeed} onChange={handleZoomSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
