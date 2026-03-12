@@ -155,9 +155,10 @@ export default function App() {
             isBulgeActive = true;
         }
 
-        // --- Smooth Zoom (position offset only, identity stays fixed) ---
+        // --- Infinite Zoom (tunnel conveyor belt) ---
         const zoom = config.zoom;
-        const offset = ((zoom % (layers + 1)) + (layers + 1)) % (layers + 1); // smooth cycling [0, layers+1)
+        const shift = Math.floor(zoom);
+        const offset = zoom - shift; // fractional [0, 1)
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
@@ -203,10 +204,11 @@ export default function App() {
 
         // Draw layers from outside in
         for (let l = layers; l >= 1; l--) {
-            const layerRng = mulberry32(config.seed + l * 999);
+            const layerId = l + shift;
+            const layerRng = mulberry32(config.seed + layerId * 999);
             // Pick pattern type — dedup against outer neighbor independently (no cascade)
             let type = Math.floor(layerRng() * 5);
-            const neighborRng = mulberry32(config.seed + (l + 1) * 999);
+            const neighborRng = mulberry32(config.seed + (layerId + 1) * 999);
             const neighborType = Math.floor(neighborRng() * 5);
             if (type === neighborType) type = (type + 1) % 5;
             const filled = layerRng() > 0.5;
@@ -341,7 +343,7 @@ export default function App() {
             ctx.arc(0, 0, innermostR, 0, Math.PI * 2);
             ctx.fill();
 
-            const coreRng = mulberry32(config.seed + 7);
+            const coreRng = mulberry32(config.seed + shift * 7);
             ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
             ctx.lineWidth = 0.5;
             for (let i = 0; i < 6; i++) {
