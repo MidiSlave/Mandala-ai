@@ -67,7 +67,7 @@ const lotusPatterns: PatternSet = {
                     [0.46, 0.41], [0.54, 0.41],
                     [0.56, 0.48], [0.54, 0.55],
                     [0.46, 0.55], [0.44, 0.48],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Ring of small dots around the center (8 dots)
                 for (let i = 0; i < 8; i++) {
@@ -77,35 +77,35 @@ const lotusPatterns: PatternSet = {
                     drawUV([
                         [cu - 0.012, cv - 0.012], [cu + 0.012, cv - 0.012],
                         [cu + 0.012, cv + 0.012], [cu - 0.012, cv + 0.012],
-                    ], filled ? baseStyle : 'outline');
+                    ], baseStyle);
                 }
 
                 if (!filled) {
-                    // Vein lines inside main petal (center spine)
-                    drawUV([[0.5, 0.08], [0.5, 0.88]], 'line');
-                    // Main petal side veins (multiple levels)
-                    drawUV([[0.5, 0.2], [0.36, 0.42]], 'line');
-                    drawUV([[0.5, 0.2], [0.64, 0.42]], 'line');
-                    drawUV([[0.5, 0.35], [0.38, 0.55]], 'line');
-                    drawUV([[0.5, 0.35], [0.62, 0.55]], 'line');
-                    drawUV([[0.5, 0.5], [0.42, 0.68]], 'line');
-                    drawUV([[0.5, 0.5], [0.58, 0.68]], 'line');
-                    drawUV([[0.5, 0.6], [0.44, 0.78]], 'line');
-                    drawUV([[0.5, 0.6], [0.56, 0.78]], 'line');
+                    // Vein lines inside main petal (center spine) — filled bar
+                    drawUV([[0.485, 0.08], [0.515, 0.08], [0.515, 0.88], [0.485, 0.88]], 'filled');
+                    // Main petal side veins — filled tapered shapes
+                    drawUV([[0.5, 0.19], [0.5, 0.21], [0.345, 0.43], [0.375, 0.41]], 'filled');
+                    drawUV([[0.5, 0.19], [0.5, 0.21], [0.655, 0.43], [0.625, 0.41]], 'filled');
+                    drawUV([[0.5, 0.34], [0.5, 0.36], [0.365, 0.56], [0.395, 0.54]], 'filled');
+                    drawUV([[0.5, 0.34], [0.5, 0.36], [0.635, 0.56], [0.605, 0.54]], 'filled');
+                    drawUV([[0.5, 0.49], [0.5, 0.51], [0.405, 0.69], [0.435, 0.67]], 'filled');
+                    drawUV([[0.5, 0.49], [0.5, 0.51], [0.595, 0.69], [0.565, 0.67]], 'filled');
+                    drawUV([[0.5, 0.59], [0.5, 0.61], [0.425, 0.79], [0.455, 0.77]], 'filled');
+                    drawUV([[0.5, 0.59], [0.5, 0.61], [0.575, 0.79], [0.545, 0.77]], 'filled');
 
-                    // Left petal vein lines
-                    drawUV([[0.17, 0.42], [0.17, 0.25]], 'line');
-                    drawUV([[0.17, 0.32], [0.1, 0.45]], 'line');
-                    drawUV([[0.17, 0.32], [0.25, 0.5]], 'line');
-                    drawUV([[0.17, 0.4], [0.12, 0.55]], 'line');
-                    drawUV([[0.17, 0.4], [0.24, 0.58]], 'line');
+                    // Left petal vein bars
+                    drawUV([[0.155, 0.42], [0.185, 0.42], [0.185, 0.25], [0.155, 0.25]], 'filled');
+                    drawUV([[0.17, 0.31], [0.17, 0.33], [0.085, 0.46], [0.115, 0.44]], 'filled');
+                    drawUV([[0.17, 0.31], [0.17, 0.33], [0.265, 0.51], [0.235, 0.49]], 'filled');
+                    drawUV([[0.17, 0.39], [0.17, 0.41], [0.105, 0.56], [0.135, 0.54]], 'filled');
+                    drawUV([[0.17, 0.39], [0.17, 0.41], [0.255, 0.59], [0.225, 0.57]], 'filled');
 
-                    // Right petal vein lines
-                    drawUV([[0.83, 0.42], [0.83, 0.25]], 'line');
-                    drawUV([[0.83, 0.32], [0.9, 0.45]], 'line');
-                    drawUV([[0.83, 0.32], [0.75, 0.5]], 'line');
-                    drawUV([[0.83, 0.4], [0.88, 0.55]], 'line');
-                    drawUV([[0.83, 0.4], [0.76, 0.58]], 'line');
+                    // Right petal vein bars
+                    drawUV([[0.815, 0.42], [0.845, 0.42], [0.845, 0.25], [0.815, 0.25]], 'filled');
+                    drawUV([[0.83, 0.31], [0.83, 0.33], [0.915, 0.46], [0.885, 0.44]], 'filled');
+                    drawUV([[0.83, 0.31], [0.83, 0.33], [0.735, 0.51], [0.765, 0.49]], 'filled');
+                    drawUV([[0.83, 0.39], [0.83, 0.41], [0.895, 0.56], [0.865, 0.54]], 'filled');
+                    drawUV([[0.83, 0.39], [0.83, 0.41], [0.745, 0.59], [0.775, 0.57]], 'filled');
 
                     // Scallop decoration along main petal edges (left side)
                     for (let i = 0; i < 5; i++) {
@@ -115,7 +115,7 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [lu - 0.04, lv], [lu - 0.02, lv + 0.04],
                             [lu, lv], [lu - 0.02, lv - 0.04],
-                        ], 'outline');
+                        ], 'filled');
                     }
                     // Scallop decoration (right side)
                     for (let i = 0; i < 5; i++) {
@@ -125,10 +125,10 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [ru + 0.04, rv], [ru + 0.02, rv + 0.04],
                             [ru, rv], [ru + 0.02, rv - 0.04],
-                        ], 'outline');
+                        ], 'filled');
                     }
 
-                    // Inner outline band around center
+                    // Inner filled band around center
                     drawUV([
                         [0.5, 0.3],
                         [0.6, 0.38],
@@ -138,7 +138,7 @@ const lotusPatterns: PatternSet = {
                         [0.4, 0.58],
                         [0.38, 0.48],
                         [0.4, 0.38],
-                    ], 'outline');
+                    ], 'filled');
                 }
                 // Dot above flower tip
                 drawUV([
@@ -180,7 +180,7 @@ const lotusPatterns: PatternSet = {
                     [0.24, 0.45],
                     [0.28, 0.32],
                     [0.4, 0.18],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Second inner concentric
                 drawUV([
                     [0.5, 0.28],
@@ -193,7 +193,7 @@ const lotusPatterns: PatternSet = {
                     [0.34, 0.48],
                     [0.37, 0.36],
                     [0.44, 0.3],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Third inner concentric
                 drawUV([
                     [0.49, 0.38],
@@ -204,7 +204,7 @@ const lotusPatterns: PatternSet = {
                     [0.42, 0.52],
                     [0.42, 0.44],
                     [0.45, 0.39],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Curling tip
                 drawUV([
                     [0.55, 0.02], [0.62, 0.04],
@@ -226,11 +226,11 @@ const lotusPatterns: PatternSet = {
                         [lu + dx - dy * 0.4, lv + dy + dx * 0.4],
                         [lu + dx * 2, lv + dy * 2],
                         [lu + dx + dy * 0.4, lv + dy - dx * 0.4],
-                    ], filled ? baseStyle : 'outline');
+                    ], baseStyle);
                 }
 
                 if (!filled) {
-                    // Row of dots along inner curve (more rows)
+                    // Rows of filled dots along inner curve
                     for (let i = 0; i < 7; i++) {
                         const t = 0.15 + i * 0.11;
                         const du = 0.22 + 0.12 * Math.sin(t * Math.PI);
@@ -238,9 +238,9 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [du - 0.015, dv], [du + 0.015, dv],
                             [du + 0.015, dv + 0.03], [du - 0.015, dv + 0.03],
-                        ], 'outline');
+                        ], 'filled');
                     }
-                    // Second row of dots along outer curve
+                    // Second row of filled dots along outer curve
                     for (let i = 0; i < 7; i++) {
                         const t = 0.15 + i * 0.11;
                         const du = 0.78 - 0.12 * Math.sin(t * Math.PI);
@@ -248,40 +248,40 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [du - 0.015, dv], [du + 0.015, dv],
                             [du + 0.015, dv + 0.03], [du - 0.015, dv + 0.03],
-                        ], 'outline');
+                        ], 'filled');
                     }
-                    // Third row of dots in center
+                    // Third row of filled dots in center
                     for (let i = 0; i < 4; i++) {
                         const dv = 0.38 + i * 0.07;
                         drawUV([
                             [0.485, dv], [0.515, dv],
                             [0.515, dv + 0.025], [0.485, dv + 0.025],
-                        ], 'outline');
+                        ], 'filled');
                     }
 
-                    // Mesh/grid fill inside paisley
+                    // Mesh/grid fill inside paisley — filled bands
                     for (let row = 0; row < 6; row++) {
                         const v = 0.3 + row * 0.08;
                         const leftU = 0.28 + 0.06 * Math.sin((v - 0.3) * 5);
                         const rightU = 0.72 - 0.06 * Math.sin((v - 0.3) * 5);
-                        drawUV([[leftU, v], [rightU, v]], 'line');
+                        drawUV([[leftU, v - 0.012], [rightU, v - 0.012], [rightU, v + 0.012], [leftU, v + 0.012]], 'filled');
                     }
                     for (let col = 0; col < 5; col++) {
                         const u = 0.35 + col * 0.07;
-                        drawUV([[u, 0.25], [u + 0.02, 0.72]], 'line');
+                        drawUV([[u - 0.012, 0.25], [u + 0.032, 0.25], [u + 0.032, 0.72], [u - 0.012, 0.72]], 'filled');
                     }
 
-                    // Spiral line at the curling tip
+                    // Spiral shape at the curling tip
                     drawUV([
                         [0.56, 0.07], [0.6, 0.06], [0.64, 0.08],
                         [0.63, 0.12], [0.59, 0.13], [0.57, 0.1],
-                    ], 'line');
+                    ], 'filled');
                     drawUV([
                         [0.58, 0.08], [0.61, 0.09],
                         [0.61, 0.11], [0.59, 0.11],
-                    ], 'line');
+                    ], 'filled');
 
-                    // Additional outline band between outer and first inner
+                    // Filled band between outer and first inner
                     drawUV([
                         [0.53, 0.1],
                         [0.67, 0.16],
@@ -297,7 +297,7 @@ const lotusPatterns: PatternSet = {
                         [0.2, 0.36],
                         [0.3, 0.24],
                         [0.44, 0.13],
-                    ], 'outline');
+                    ], 'filled');
                 }
                 break;
             }
@@ -323,12 +323,12 @@ const lotusPatterns: PatternSet = {
                 drawUV([
                     [0.18, 0.0], [0.26, 0.0],
                     [0.26, 0.45], [0.18, 0.45],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Right column
                 drawUV([
                     [0.74, 0.0], [0.82, 0.0],
                     [0.82, 0.45], [0.74, 0.45],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Left column capital (scroll decoration at top)
                 drawUV([
@@ -336,29 +336,29 @@ const lotusPatterns: PatternSet = {
                     [0.29, 0.48], [0.27, 0.51],
                     [0.22, 0.5], [0.19, 0.51],
                     [0.15, 0.48],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Right column capital
                 drawUV([
                     [0.72, 0.44], [0.84, 0.44],
                     [0.85, 0.48], [0.83, 0.51],
                     [0.78, 0.5], [0.75, 0.51],
                     [0.71, 0.48],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Lotus flower at top of dome
                 drawUV([
                     [0.5, 0.94], [0.54, 0.9], [0.52, 0.86],
                     [0.5, 0.88], [0.48, 0.86], [0.46, 0.9],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Lotus side petals
                 drawUV([
                     [0.46, 0.9], [0.42, 0.88], [0.43, 0.84],
                     [0.47, 0.86],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 drawUV([
                     [0.54, 0.9], [0.58, 0.88], [0.57, 0.84],
                     [0.53, 0.86],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Finial dot at very top
                 drawUV([
                     [0.49, 0.95], [0.51, 0.95],
@@ -374,7 +374,7 @@ const lotusPatterns: PatternSet = {
                     [0.48, 0.48],
                     [0.44, 0.52],
                     [0.44, 0.62],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Steps at base
                 drawUV([
@@ -384,12 +384,12 @@ const lotusPatterns: PatternSet = {
                 drawUV([
                     [0.14, 0.06], [0.86, 0.06],
                     [0.86, 0.1], [0.14, 0.1],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Base decoration - additional step
                 drawUV([
                     [0.06, 0.0], [0.94, 0.0],
                     [0.94, 0.03], [0.06, 0.03],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Base decoration diamonds
                 for (let i = 0; i < 5; i++) {
@@ -397,11 +397,11 @@ const lotusPatterns: PatternSet = {
                     drawUV([
                         [bx, 0.03], [bx + 0.02, 0.06],
                         [bx, 0.09], [bx - 0.02, 0.06],
-                    ], filled ? baseStyle : 'outline');
+                    ], baseStyle);
                 }
 
                 if (!filled) {
-                    // Decorative dots along the arch (doubled quantity)
+                    // Filled dots along the arch
                     for (let i = 1; i <= 7; i++) {
                         const t = Math.PI * (1 - i / 8);
                         const u = 0.5 + 0.28 * Math.cos(t);
@@ -409,9 +409,9 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [u - 0.015, v - 0.015], [u + 0.015, v - 0.015],
                             [u + 0.015, v + 0.015], [u - 0.015, v + 0.015],
-                        ], 'outline');
+                        ], 'filled');
                     }
-                    // Second row of dots (inner)
+                    // Second row of filled dots (inner)
                     for (let i = 1; i <= 5; i++) {
                         const t = Math.PI * (1 - i / 6);
                         const u = 0.5 + 0.2 * Math.cos(t);
@@ -419,28 +419,28 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [u - 0.015, v - 0.015], [u + 0.015, v - 0.015],
                             [u + 0.015, v + 0.015], [u - 0.015, v + 0.015],
-                        ], 'outline');
+                        ], 'filled');
                     }
 
-                    // Horizontal band lines across the arch
-                    drawUV([[0.26, 0.5], [0.74, 0.5]], 'line');
-                    drawUV([[0.24, 0.55], [0.76, 0.55]], 'line');
-                    drawUV([[0.22, 0.6], [0.78, 0.6]], 'line');
-                    drawUV([[0.26, 0.65], [0.74, 0.65]], 'line');
-                    drawUV([[0.3, 0.7], [0.7, 0.7]], 'line');
-                    drawUV([[0.35, 0.75], [0.65, 0.75]], 'line');
-                    drawUV([[0.4, 0.8], [0.6, 0.8]], 'line');
+                    // Horizontal filled bands across the arch
+                    drawUV([[0.26, 0.488], [0.74, 0.488], [0.74, 0.512], [0.26, 0.512]], 'filled');
+                    drawUV([[0.24, 0.538], [0.76, 0.538], [0.76, 0.562], [0.24, 0.562]], 'filled');
+                    drawUV([[0.22, 0.588], [0.78, 0.588], [0.78, 0.612], [0.22, 0.612]], 'filled');
+                    drawUV([[0.26, 0.638], [0.74, 0.638], [0.74, 0.662], [0.26, 0.662]], 'filled');
+                    drawUV([[0.3, 0.688], [0.7, 0.688], [0.7, 0.712], [0.3, 0.712]], 'filled');
+                    drawUV([[0.35, 0.738], [0.65, 0.738], [0.65, 0.762], [0.35, 0.762]], 'filled');
+                    drawUV([[0.4, 0.788], [0.6, 0.788], [0.6, 0.812], [0.4, 0.812]], 'filled');
 
-                    // Column fluting lines (left column)
-                    drawUV([[0.2, 0.1], [0.2, 0.44]], 'line');
-                    drawUV([[0.22, 0.1], [0.22, 0.44]], 'line');
-                    drawUV([[0.24, 0.1], [0.24, 0.44]], 'line');
-                    // Column fluting lines (right column)
-                    drawUV([[0.76, 0.1], [0.76, 0.44]], 'line');
-                    drawUV([[0.78, 0.1], [0.78, 0.44]], 'line');
-                    drawUV([[0.8, 0.1], [0.8, 0.44]], 'line');
+                    // Column fluting bars (left column)
+                    drawUV([[0.188, 0.1], [0.212, 0.1], [0.212, 0.44], [0.188, 0.44]], 'filled');
+                    drawUV([[0.208, 0.1], [0.232, 0.1], [0.232, 0.44], [0.208, 0.44]], 'filled');
+                    drawUV([[0.228, 0.1], [0.252, 0.1], [0.252, 0.44], [0.228, 0.44]], 'filled');
+                    // Column fluting bars (right column)
+                    drawUV([[0.748, 0.1], [0.772, 0.1], [0.772, 0.44], [0.748, 0.44]], 'filled');
+                    drawUV([[0.768, 0.1], [0.792, 0.1], [0.792, 0.44], [0.768, 0.44]], 'filled');
+                    drawUV([[0.788, 0.1], [0.812, 0.1], [0.812, 0.44], [0.788, 0.44]], 'filled');
 
-                    // Inner arch outline band
+                    // Inner arch filled band
                     const innerArch: [number, number][] = [[0.26, 0.45]];
                     for (let i = 0; i <= 8; i++) {
                         const t = Math.PI * (1 - i / 8);
@@ -450,11 +450,11 @@ const lotusPatterns: PatternSet = {
                         innerArch.push([u, v]);
                     }
                     innerArch.push([0.74, 0.45]);
-                    drawUV(innerArch, 'outline');
+                    drawUV(innerArch, 'filled');
 
-                    // Pendant decoration lines
-                    drawUV([[0.46, 0.55], [0.54, 0.55]], 'line');
-                    drawUV([[0.47, 0.6], [0.53, 0.6]], 'line');
+                    // Pendant decoration bars
+                    drawUV([[0.46, 0.538], [0.54, 0.538], [0.54, 0.562], [0.46, 0.562]], 'filled');
+                    drawUV([[0.47, 0.588], [0.53, 0.588], [0.53, 0.612], [0.47, 0.612]], 'filled');
                 }
                 break;
             }
@@ -478,13 +478,14 @@ const lotusPatterns: PatternSet = {
                     [0.38, 0.85],
                 ], baseStyle);
 
-                // Crown of small leaves/dots at top
-                drawUV([[0.42, 0.06], [0.5, 0.0], [0.58, 0.06]], 'line');
-                drawUV([[0.38, 0.1], [0.44, 0.02], [0.5, 0.0]], 'line');
-                drawUV([[0.5, 0.0], [0.56, 0.02], [0.62, 0.1]], 'line');
+                // Crown of small filled leaves at top
+                drawUV([[0.42, 0.06], [0.5, 0.0], [0.58, 0.06]], baseStyle);
+                drawUV([[0.38, 0.1], [0.44, 0.02], [0.5, 0.0]], baseStyle);
+                drawUV([[0.5, 0.0], [0.56, 0.02], [0.62, 0.1]], baseStyle);
 
-                // Central spine line (both modes)
-                drawUV([[0.48, 0.15], [0.45, 0.5], [0.48, 0.85]], 'line');
+                // Central spine bar (both modes)
+                drawUV([[0.465, 0.15], [0.495, 0.15], [0.465, 0.5], [0.435, 0.5]], baseStyle);
+                drawUV([[0.435, 0.5], [0.465, 0.5], [0.495, 0.85], [0.465, 0.85]], baseStyle);
 
                 // Small leaf shapes along outer edge (both modes)
                 const mangoLeaves: [number, number, number][] = [
@@ -500,48 +501,48 @@ const lotusPatterns: PatternSet = {
                         [lu + dx - dy * 0.4, lv + dy + dx * 0.4],
                         [lu + dx * 2, lv + dy * 2],
                         [lu + dx + dy * 0.4, lv + dy - dx * 0.4],
-                    ], filled ? baseStyle : 'outline');
+                    ], baseStyle);
                 }
 
                 // Spiral at the top curl
                 drawUV([
                     [0.5, 0.02], [0.54, 0.01], [0.57, 0.03],
                     [0.56, 0.06], [0.52, 0.06], [0.5, 0.04],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 if (!filled) {
-                    // Internal parallel curved lines
+                    // Internal parallel filled curved bands
                     drawUV([
                         [0.48, 0.82],
                         [0.58, 0.72],
                         [0.64, 0.55],
                         [0.62, 0.38],
                         [0.52, 0.22],
-                    ], 'line');
+                    ], 'filled');
                     drawUV([
                         [0.42, 0.75],
                         [0.52, 0.65],
                         [0.56, 0.5],
                         [0.54, 0.35],
                         [0.47, 0.25],
-                    ], 'line');
-                    // Additional inner curved line
+                    ], 'filled');
+                    // Additional inner filled curve
                     drawUV([
                         [0.38, 0.68],
                         [0.46, 0.58],
                         [0.48, 0.45],
                         [0.46, 0.32],
                         [0.42, 0.22],
-                    ], 'line');
+                    ], 'filled');
 
-                    // Cross-hatching (more lines)
+                    // Cross-hatching filled bands
                     for (let i = 0; i < 6; i++) {
                         const v = 0.22 + i * 0.1;
-                        drawUV([[0.32, v], [0.58, v + 0.08]], 'line');
-                        drawUV([[0.58, v], [0.32, v + 0.08]], 'line');
+                        drawUV([[0.32, v - 0.01], [0.58, v + 0.07], [0.58, v + 0.09], [0.32, v + 0.01]], 'filled');
+                        drawUV([[0.58, v - 0.01], [0.32, v + 0.07], [0.32, v + 0.09], [0.58, v + 0.01]], 'filled');
                     }
 
-                    // Interior seed/dot pattern (rows of small diamonds)
+                    // Interior seed/dot pattern (rows of filled diamonds)
                     for (let row = 0; row < 5; row++) {
                         const rv = 0.28 + row * 0.12;
                         for (let col = 0; col < 3; col++) {
@@ -549,11 +550,11 @@ const lotusPatterns: PatternSet = {
                             drawUV([
                                 [ru, rv - 0.015], [ru + 0.015, rv],
                                 [ru, rv + 0.015], [ru - 0.015, rv],
-                            ], 'outline');
+                            ], 'filled');
                         }
                     }
 
-                    // Inner outline band
+                    // Inner filled band
                     drawUV([
                         [0.48, 0.85],
                         [0.58, 0.78],
@@ -569,7 +570,7 @@ const lotusPatterns: PatternSet = {
                         [0.26, 0.58],
                         [0.32, 0.72],
                         [0.4, 0.82],
-                    ], 'outline');
+                    ], 'filled');
                 } else {
                     // Inner filled shape
                     drawUV([
@@ -582,7 +583,7 @@ const lotusPatterns: PatternSet = {
                         [0.34, 0.32],
                         [0.32, 0.5],
                         [0.36, 0.68],
-                    ], 'outline');
+                    ], 'filled');
                 }
                 break;
             }
@@ -609,9 +610,9 @@ const lotusPatterns: PatternSet = {
                     [0.23, 0.2], [0.27, 0.2],
                     [0.28, 0.27], [0.25, 0.33],
                     [0.22, 0.27],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Left clapper rod
-                drawUV([[0.25, 0.33], [0.25, 0.5]], 'line');
+                drawUV([[0.235, 0.33], [0.265, 0.33], [0.265, 0.5], [0.235, 0.5]], baseStyle);
 
                 // Right bell dome
                 const rightBell: [number, number][] = [[0.62, 0.35]];
@@ -633,37 +634,37 @@ const lotusPatterns: PatternSet = {
                     [0.73, 0.2], [0.77, 0.2],
                     [0.78, 0.27], [0.75, 0.33],
                     [0.72, 0.27],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Right clapper rod
-                drawUV([[0.75, 0.33], [0.75, 0.5]], 'line');
+                drawUV([[0.735, 0.33], [0.765, 0.33], [0.765, 0.5], [0.735, 0.5]], baseStyle);
 
                 // Decorative bands around bell bodies (horizontal stripes)
                 // Left bell bands
                 drawUV([
                     [0.12, 0.3], [0.38, 0.3],
                     [0.38, 0.33], [0.12, 0.33],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 drawUV([
                     [0.14, 0.4], [0.36, 0.4],
                     [0.36, 0.43], [0.14, 0.43],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 drawUV([
                     [0.17, 0.5], [0.33, 0.5],
                     [0.33, 0.53], [0.17, 0.53],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 // Right bell bands
                 drawUV([
                     [0.62, 0.3], [0.88, 0.3],
                     [0.88, 0.33], [0.62, 0.33],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 drawUV([
                     [0.64, 0.4], [0.86, 0.4],
                     [0.86, 0.43], [0.64, 0.43],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
                 drawUV([
                     [0.67, 0.5], [0.83, 0.5],
                     [0.83, 0.53], [0.67, 0.53],
-                ], filled ? baseStyle : 'outline');
+                ], baseStyle);
 
                 // Chain links connecting the bells at top (5 links)
                 for (let i = 0; i < 5; i++) {
@@ -671,71 +672,71 @@ const lotusPatterns: PatternSet = {
                     drawUV([
                         [cx, 0.72], [cx + 0.035, 0.72],
                         [cx + 0.035, 0.78], [cx, 0.78],
-                    ], filled ? baseStyle : 'outline');
+                    ], baseStyle);
                 }
-                // Chain connectors (diagonal links between)
+                // Chain connectors (filled links between)
                 for (let i = 0; i < 4; i++) {
                     const cx = 0.4 + i * 0.045;
-                    drawUV([[cx + 0.035, 0.75], [cx + 0.045, 0.75]], 'line');
+                    drawUV([[cx + 0.035, 0.738], [cx + 0.045, 0.738], [cx + 0.045, 0.762], [cx + 0.035, 0.762]], baseStyle);
                 }
 
                 // Decorative finials on top of each bell
                 drawUV([[0.25, 0.8], [0.23, 0.85], [0.27, 0.85]], baseStyle);
                 drawUV([[0.75, 0.8], [0.73, 0.85], [0.77, 0.85]], baseStyle);
 
-                // Sound lines radiating from bells (both modes)
-                // Left bell sound lines
-                drawUV([[0.06, 0.25], [0.02, 0.22]], 'line');
-                drawUV([[0.06, 0.3], [0.01, 0.3]], 'line');
-                drawUV([[0.06, 0.35], [0.02, 0.38]], 'line');
-                drawUV([[0.08, 0.22], [0.05, 0.18]], 'line');
-                drawUV([[0.08, 0.38], [0.05, 0.42]], 'line');
-                // Right bell sound lines
-                drawUV([[0.94, 0.25], [0.98, 0.22]], 'line');
-                drawUV([[0.94, 0.3], [0.99, 0.3]], 'line');
-                drawUV([[0.94, 0.35], [0.98, 0.38]], 'line');
-                drawUV([[0.92, 0.22], [0.95, 0.18]], 'line');
-                drawUV([[0.92, 0.38], [0.95, 0.42]], 'line');
+                // Sound bars radiating from bells (both modes)
+                // Left bell sound bars
+                drawUV([[0.06, 0.238], [0.02, 0.208], [0.02, 0.232], [0.06, 0.262]], baseStyle);
+                drawUV([[0.06, 0.288], [0.01, 0.288], [0.01, 0.312], [0.06, 0.312]], baseStyle);
+                drawUV([[0.06, 0.338], [0.02, 0.368], [0.02, 0.392], [0.06, 0.362]], baseStyle);
+                drawUV([[0.08, 0.208], [0.05, 0.168], [0.05, 0.192], [0.08, 0.232]], baseStyle);
+                drawUV([[0.08, 0.368], [0.05, 0.408], [0.05, 0.432], [0.08, 0.392]], baseStyle);
+                // Right bell sound bars
+                drawUV([[0.94, 0.238], [0.98, 0.208], [0.98, 0.232], [0.94, 0.262]], baseStyle);
+                drawUV([[0.94, 0.288], [0.99, 0.288], [0.99, 0.312], [0.94, 0.312]], baseStyle);
+                drawUV([[0.94, 0.338], [0.98, 0.368], [0.98, 0.392], [0.94, 0.362]], baseStyle);
+                drawUV([[0.92, 0.208], [0.95, 0.168], [0.95, 0.192], [0.92, 0.232]], baseStyle);
+                drawUV([[0.92, 0.368], [0.95, 0.408], [0.95, 0.432], [0.92, 0.392]], baseStyle);
 
                 // Hanging tassels below bells
                 // Left tassel
-                drawUV([[0.25, 0.15], [0.25, 0.06]], 'line');
+                drawUV([[0.235, 0.15], [0.265, 0.15], [0.265, 0.06], [0.235, 0.06]], baseStyle);
                 drawUV([
                     [0.22, 0.06], [0.28, 0.06],
                     [0.27, 0.02], [0.23, 0.02],
-                ], filled ? baseStyle : 'outline');
-                drawUV([[0.23, 0.02], [0.22, 0.0]], 'line');
-                drawUV([[0.25, 0.02], [0.25, 0.0]], 'line');
-                drawUV([[0.27, 0.02], [0.28, 0.0]], 'line');
+                ], baseStyle);
+                drawUV([[0.215, 0.02], [0.235, 0.02], [0.235, 0.0], [0.215, 0.0]], baseStyle);
+                drawUV([[0.235, 0.02], [0.265, 0.02], [0.265, 0.0], [0.235, 0.0]], baseStyle);
+                drawUV([[0.255, 0.02], [0.285, 0.02], [0.295, 0.0], [0.265, 0.0]], baseStyle);
                 // Right tassel
-                drawUV([[0.75, 0.15], [0.75, 0.06]], 'line');
+                drawUV([[0.735, 0.15], [0.765, 0.15], [0.765, 0.06], [0.735, 0.06]], baseStyle);
                 drawUV([
                     [0.72, 0.06], [0.78, 0.06],
                     [0.77, 0.02], [0.73, 0.02],
-                ], filled ? baseStyle : 'outline');
-                drawUV([[0.73, 0.02], [0.72, 0.0]], 'line');
-                drawUV([[0.75, 0.02], [0.75, 0.0]], 'line');
-                drawUV([[0.77, 0.02], [0.78, 0.0]], 'line');
+                ], baseStyle);
+                drawUV([[0.715, 0.02], [0.735, 0.02], [0.735, 0.0], [0.715, 0.0]], baseStyle);
+                drawUV([[0.735, 0.02], [0.765, 0.02], [0.765, 0.0], [0.735, 0.0]], baseStyle);
+                drawUV([[0.755, 0.02], [0.785, 0.02], [0.795, 0.0], [0.765, 0.0]], baseStyle);
 
                 if (!filled) {
-                    // Additional bell body detail lines
-                    drawUV([[0.15, 0.25], [0.35, 0.25]], 'line');
-                    drawUV([[0.19, 0.46], [0.31, 0.46]], 'line');
-                    drawUV([[0.65, 0.25], [0.85, 0.25]], 'line');
-                    drawUV([[0.69, 0.46], [0.81, 0.46]], 'line');
+                    // Additional bell body filled bands
+                    drawUV([[0.15, 0.238], [0.35, 0.238], [0.35, 0.262], [0.15, 0.262]], 'filled');
+                    drawUV([[0.19, 0.448], [0.31, 0.448], [0.31, 0.472], [0.19, 0.472]], 'filled');
+                    drawUV([[0.65, 0.238], [0.85, 0.238], [0.85, 0.262], [0.65, 0.262]], 'filled');
+                    drawUV([[0.69, 0.448], [0.81, 0.448], [0.81, 0.472], [0.69, 0.472]], 'filled');
 
-                    // Sound wave arcs (left)
+                    // Sound wave arcs (left) — filled
                     drawUV([
                         [0.04, 0.2], [0.02, 0.25], [0.01, 0.3],
                         [0.02, 0.35], [0.04, 0.4],
-                    ], 'line');
-                    // Sound wave arcs (right)
+                    ], 'filled');
+                    // Sound wave arcs (right) — filled
                     drawUV([
                         [0.96, 0.2], [0.98, 0.25], [0.99, 0.3],
                         [0.98, 0.35], [0.96, 0.4],
-                    ], 'line');
+                    ], 'filled');
 
-                    // Dots on bell bodies
+                    // Filled dots on bell bodies
                     for (let i = 0; i < 3; i++) {
                         const dv = 0.35 + i * 0.06;
                         const spread = 0.06 - i * 0.015;
@@ -743,28 +744,28 @@ const lotusPatterns: PatternSet = {
                         drawUV([
                             [0.25 - 0.01, dv], [0.25 + 0.01, dv],
                             [0.25 + 0.01, dv + 0.02], [0.25 - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                         drawUV([
                             [0.25 - spread - 0.01, dv], [0.25 - spread + 0.01, dv],
                             [0.25 - spread + 0.01, dv + 0.02], [0.25 - spread - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                         drawUV([
                             [0.25 + spread - 0.01, dv], [0.25 + spread + 0.01, dv],
                             [0.25 + spread + 0.01, dv + 0.02], [0.25 + spread - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                         // Right bell dots
                         drawUV([
                             [0.75 - 0.01, dv], [0.75 + 0.01, dv],
                             [0.75 + 0.01, dv + 0.02], [0.75 - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                         drawUV([
                             [0.75 - spread - 0.01, dv], [0.75 - spread + 0.01, dv],
                             [0.75 - spread + 0.01, dv + 0.02], [0.75 - spread - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                         drawUV([
                             [0.75 + spread - 0.01, dv], [0.75 + spread + 0.01, dv],
                             [0.75 + spread + 0.01, dv + 0.02], [0.75 + spread - 0.01, dv + 0.02],
-                        ], 'outline');
+                        ], 'filled');
                     }
                 }
                 break;
