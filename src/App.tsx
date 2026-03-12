@@ -121,7 +121,7 @@ export default function App() {
         if (autoAnimateRef.current) {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
-            configRef.current.zoom += dt * configRef.current.zoomSpeed * 3;
+            configRef.current.zoom += dt * configRef.current.zoomSpeed;
             isDirtyRef.current = true;
         }
 
@@ -155,11 +155,17 @@ export default function App() {
             isBulgeActive = true;
         }
 
-        // --- Zoom as camera scale (no identity changes) ---
-        // Oscillating zoom: sine wave gives smooth in/out breathing
-        // Manual zoom (pinch/scroll) adds to the base, animation oscillates around it
+        // --- Infinite tunnel: continuous conveyor belt ---
+        // Each layer has a unique `id`. Position t = (id - zoom) / N is continuous in zoom.
+        // As zoom increases, layers slide inward. New layers appear at the outer edge,
+        // old layers vanish into the center. Pattern identity is tied to `id`, never changes.
         const zoom = config.zoom;
-        const zoomScale = Math.pow(1.15, zoom);
+        const N = layers + 1; // normalization factor
+        // Visible ids: those where outer edge t > 0 and inner edge t < 1
+        // t_outer(id) = (id + 1 - zoom) / N > 0  =>  id > zoom - 1
+        // t_inner(id) = (id - zoom) / N < 1       =>  id < zoom + N
+        const firstId = Math.ceil(zoom);           // innermost visible
+        const lastId = Math.floor(zoom + N - 1);   // outermost visible
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
@@ -204,28 +210,27 @@ export default function App() {
         };
 
         // Draw layers from outside in
-        let prevType = -1;
-        for (let l = layers; l >= 1; l--) {
-            const layerRng = mulberry32(config.seed + l * 999);
-            // Pick pattern type, dedup against previous (sequential is fine — ids never change)
+        for (let id = lastId; id >= firstId; id--) {
+            const layerRng = mulberry32(config.seed + id * 999);
+            // Pick pattern type — dedup against outer neighbor independently (stable per id)
             let type = Math.floor(layerRng() * 5);
-            if (type === prevType) type = (type + 1 + Math.floor(layerRng() * 4)) % 5;
-            prevType = type;
+            const neighborRaw = Math.floor(mulberry32(config.seed + (id + 1) * 999)() * 5);
+            if (type === neighborRaw) type = (type + 1) % 5;
             const filled = layerRng() > 0.5;
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
             const speedOffset = (layerRng() - 0.5) * 2; // [-1, 1]
 
-            // Normalized positions along the tunnel (fixed, no offset)
-            const t1 = (l - 1) / (layers + 1);
-            const t2 = l / (layers + 1);
+            // Continuous positions: t = (id - zoom) / N
+            const t1 = Math.max(0, (id - zoom) / N);
+            const t2 = Math.min(1, (id + 1 - zoom) / N);
 
-            // Exponential radii scaled by zoom
-            let r1 = tunnelRadius(t1, maxR) * zoomScale;
-            let r2 = tunnelRadius(t2, maxR) * zoomScale;
+            // Exponential radii
+            let r1 = tunnelRadius(t1, maxR);
+            let r2 = tunnelRadius(t2, maxR);
 
             if (r2 <= 0.5) continue; // too small to see
-            if (r1 > maxR * 1.5) continue; // off-screen (zoomed past)
+            if (r1 > maxR * 1.2) continue; // off-screen
 
             // Ring thickness — skip drawing motifs if too thin
             const thickness = r2 - r1;
@@ -330,8 +335,9 @@ export default function App() {
             ctx.restore();
         }
 
-        // Dense center vanishing point — inside the innermost layer
-        const coreR = tunnelRadius(1 / (layers + 1), maxR) * zoomScale;
+        // Dense center vanishing point — inside the innermost visible layer
+        const innermostT = Math.max(0, (firstId - zoom) / N);
+        const coreR = tunnelRadius(innermostT, maxR);
         if (coreR > 0.5) {
             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
             grad.addColorStop(0, 'rgba(26, 24, 24, 0.85)');
@@ -343,7 +349,7 @@ export default function App() {
             ctx.arc(0, 0, coreR, 0, Math.PI * 2);
             ctx.fill();
 
-            const coreRng = mulberry32(config.seed + 7);
+            const coreRng = mulberry32(config.seed + firstId * 7);
             ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
             ctx.lineWidth = 0.5;
             for (let i = 0; i < 6; i++) {
