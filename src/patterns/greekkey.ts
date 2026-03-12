@@ -80,18 +80,42 @@ const greekkeyPatterns: PatternSet = {
                     ], 'opaque-outline');
                 }
 
-                // Center bridge / connector line
+                // Center bridge / connector block
                 drawUV([
                     [0.40, 0.46], [0.60, 0.46],
                     [0.60, 0.54], [0.40, 0.54],
                 ], baseStyle);
 
-                // Detail lines along rails
-                drawUV([[0.0, 0.90], [1.0, 0.90]], 'line');
-                drawUV([[0.0, 0.10], [1.0, 0.10]], 'line');
-                // Detail tick marks on vertical bars
-                drawUV([[0.06, 0.50], [0.16, 0.50]], 'line');
-                drawUV([[0.84, 0.50], [0.94, 0.50]], 'line');
+                // Detail lines along rails (converted to filled rects)
+                drawUV([
+                    [0.0, 0.885], [1.0, 0.885],
+                    [1.0, 0.915], [0.0, 0.915],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.085], [1.0, 0.085],
+                    [1.0, 0.115], [0.0, 0.115],
+                ], baseStyle);
+                // Detail tick marks on vertical bars (converted to filled rects)
+                drawUV([
+                    [0.06, 0.485], [0.16, 0.485],
+                    [0.16, 0.515], [0.06, 0.515],
+                ], baseStyle);
+                drawUV([
+                    [0.84, 0.485], [0.94, 0.485],
+                    [0.94, 0.515], [0.84, 0.515],
+                ], baseStyle);
+
+                // Additional filled background shapes to reduce empty areas
+                // Fill between spirals at top
+                drawUV([
+                    [0.40, 0.82], [0.70, 0.82],
+                    [0.70, 0.85], [0.40, 0.85],
+                ], baseStyle);
+                // Fill between spirals at bottom
+                drawUV([
+                    [0.30, 0.15], [0.60, 0.15],
+                    [0.60, 0.18], [0.30, 0.18],
+                ], baseStyle);
                 break;
             }
 
@@ -126,6 +150,24 @@ const greekkeyPatterns: PatternSet = {
                 drawUV([
                     [0.78, 0.20], [0.94, 0.20],
                     [0.94, 0.38], [0.78, 0.38],
+                ], baseStyle);
+
+                // Corner fill blocks to reduce empty space
+                drawUV([
+                    [0.06, 0.80], [0.22, 0.80],
+                    [0.22, 0.94], [0.06, 0.94],
+                ], baseStyle);
+                drawUV([
+                    [0.78, 0.06], [0.94, 0.06],
+                    [0.94, 0.20], [0.78, 0.20],
+                ], baseStyle);
+                drawUV([
+                    [0.06, 0.06], [0.20, 0.06],
+                    [0.20, 0.22], [0.06, 0.22],
+                ], baseStyle);
+                drawUV([
+                    [0.80, 0.78], [0.94, 0.78],
+                    [0.94, 0.94], [0.80, 0.94],
                 ], baseStyle);
 
                 if (filled) {
@@ -168,16 +210,53 @@ const greekkeyPatterns: PatternSet = {
                         [0.82, 0.24], [0.90, 0.24],
                         [0.90, 0.34], [0.82, 0.34],
                     ], 'opaque-outline');
+                    // Cutouts in corner fill blocks
+                    drawUV([
+                        [0.09, 0.84], [0.19, 0.84],
+                        [0.19, 0.91], [0.09, 0.91],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.81, 0.09], [0.91, 0.09],
+                        [0.91, 0.17], [0.81, 0.17],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.09, 0.09], [0.17, 0.09],
+                        [0.17, 0.19], [0.09, 0.19],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.83, 0.81], [0.91, 0.81],
+                        [0.91, 0.91], [0.83, 0.91],
+                    ], 'opaque-outline');
                 }
 
-                // Cross-hair detail lines through center
-                drawUV([[0.50, 0.06], [0.50, 0.94]], 'line');
-                drawUV([[0.06, 0.50], [0.94, 0.50]], 'line');
-                // Diagonal detail lines at corners
-                drawUV([[0.06, 0.06], [0.20, 0.20]], 'line');
-                drawUV([[0.80, 0.80], [0.94, 0.94]], 'line');
-                drawUV([[0.80, 0.06], [0.94, 0.20]], 'line');
-                drawUV([[0.06, 0.80], [0.20, 0.94]], 'line');
+                // Cross-hair detail lines through center (converted to filled rects)
+                // Vertical center line
+                drawUV([
+                    [0.485, 0.06], [0.515, 0.06],
+                    [0.515, 0.94], [0.485, 0.94],
+                ], baseStyle);
+                // Horizontal center line
+                drawUV([
+                    [0.06, 0.485], [0.94, 0.485],
+                    [0.94, 0.515], [0.06, 0.515],
+                ], baseStyle);
+                // Diagonal detail at corners (converted to filled parallelograms)
+                drawUV([
+                    [0.06, 0.04], [0.08, 0.06],
+                    [0.22, 0.20], [0.20, 0.18],
+                ], baseStyle);
+                drawUV([
+                    [0.80, 0.78], [0.82, 0.80],
+                    [0.96, 0.94], [0.94, 0.92],
+                ], baseStyle);
+                drawUV([
+                    [0.80, 0.08], [0.82, 0.06],
+                    [0.96, 0.20], [0.94, 0.22],
+                ], baseStyle);
+                drawUV([
+                    [0.06, 0.82], [0.08, 0.80],
+                    [0.22, 0.94], [0.20, 0.96],
+                ], baseStyle);
                 break;
             }
 
@@ -216,13 +295,30 @@ const greekkeyPatterns: PatternSet = {
 
                 // Top border rail
                 drawUV([
-                    [0.0, 0.92], [1.0, 0.92],
+                    [0.0, 0.90], [1.0, 0.90],
                     [1.0, 0.98], [0.0, 0.98],
                 ], baseStyle);
                 // Bottom border rail
                 drawUV([
                     [0.0, 0.02], [1.0, 0.02],
                     [1.0, 0.08], [0.0, 0.08],
+                ], baseStyle);
+
+                // Fill between upper wave and top rail
+                drawUV([
+                    [0.0, 0.86], [1.0, 0.86],
+                    [1.0, 0.90], [0.0, 0.90],
+                ], baseStyle);
+                // Fill between lower wave and bottom rail
+                drawUV([
+                    [0.0, 0.08], [1.0, 0.08],
+                    [1.0, 0.14], [0.0, 0.14],
+                ], baseStyle);
+
+                // Center horizontal band between waves
+                drawUV([
+                    [0.0, 0.46], [1.0, 0.46],
+                    [1.0, 0.54], [0.0, 0.54],
                 ], baseStyle);
 
                 if (filled) {
@@ -244,17 +340,39 @@ const greekkeyPatterns: PatternSet = {
                         [0.70, 0.16], [0.76, 0.16],
                         [0.76, 0.24], [0.70, 0.24],
                     ], 'opaque-outline');
+                    // Center band cutout
+                    drawUV([
+                        [0.22, 0.48], [0.34, 0.48],
+                        [0.34, 0.52], [0.22, 0.52],
+                    ], 'opaque-outline');
+                    drawUV([
+                        [0.66, 0.48], [0.78, 0.48],
+                        [0.78, 0.52], [0.66, 0.52],
+                    ], 'opaque-outline');
                 }
 
-                // Center horizontal detail line
-                drawUV([[0.0, 0.50], [1.0, 0.50]], 'line');
-                // Detail dots on borders
-                drawUV([[0.0, 0.95], [1.0, 0.95]], 'line');
-                drawUV([[0.0, 0.05], [1.0, 0.05]], 'line');
-                // Vertical connector lines between waves
-                drawUV([[0.25, 0.44], [0.25, 0.56]], 'line');
-                drawUV([[0.75, 0.44], [0.75, 0.56]], 'line');
-                drawUV([[0.50, 0.44], [0.50, 0.56]], 'line');
+                // Detail lines on borders (converted to filled rects)
+                drawUV([
+                    [0.0, 0.935], [1.0, 0.935],
+                    [1.0, 0.965], [0.0, 0.965],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.035], [1.0, 0.035],
+                    [1.0, 0.065], [0.0, 0.065],
+                ], baseStyle);
+                // Vertical connector bars between waves (converted to filled rects)
+                drawUV([
+                    [0.235, 0.44], [0.265, 0.44],
+                    [0.265, 0.56], [0.235, 0.56],
+                ], baseStyle);
+                drawUV([
+                    [0.735, 0.44], [0.765, 0.44],
+                    [0.765, 0.56], [0.735, 0.56],
+                ], baseStyle);
+                drawUV([
+                    [0.485, 0.44], [0.515, 0.44],
+                    [0.515, 0.56], [0.485, 0.56],
+                ], baseStyle);
                 break;
             }
 
@@ -297,6 +415,20 @@ const greekkeyPatterns: PatternSet = {
                     [0.86, 0.90], [0.73, 0.90],
                 ], baseStyle);
 
+                // Upper row: fill gaps between keys
+                drawUV([
+                    [0.28, 0.67], [0.36, 0.67],
+                    [0.36, 0.76], [0.28, 0.76],
+                ], baseStyle);
+                drawUV([
+                    [0.55, 0.67], [0.64, 0.67],
+                    [0.64, 0.76], [0.55, 0.76],
+                ], baseStyle);
+                drawUV([
+                    [0.86, 0.67], [0.95, 0.67],
+                    [0.95, 0.76], [0.86, 0.76],
+                ], baseStyle);
+
                 // Lower row: top rail
                 drawUV([
                     [0.0, 0.33], [1.0, 0.33],
@@ -329,10 +461,24 @@ const greekkeyPatterns: PatternSet = {
                     [0.91, 0.26], [0.82, 0.26],
                 ], baseStyle);
 
+                // Lower row: fill gaps between keys
+                drawUV([
+                    [0.05, 0.10], [0.18, 0.10],
+                    [0.18, 0.20], [0.05, 0.20],
+                ], baseStyle);
+                drawUV([
+                    [0.41, 0.10], [0.50, 0.10],
+                    [0.50, 0.20], [0.41, 0.20],
+                ], baseStyle);
+                drawUV([
+                    [0.73, 0.10], [0.82, 0.10],
+                    [0.82, 0.20], [0.73, 0.20],
+                ], baseStyle);
+
                 // Center connector band with notches
                 drawUV([
-                    [0.0, 0.47], [1.0, 0.47],
-                    [1.0, 0.53], [0.0, 0.53],
+                    [0.0, 0.44], [1.0, 0.44],
+                    [1.0, 0.56], [0.0, 0.56],
                 ], baseStyle);
 
                 if (filled) {
@@ -360,21 +506,36 @@ const greekkeyPatterns: PatternSet = {
                     ], 'opaque-outline');
                     // Connector band notches
                     drawUV([
-                        [0.15, 0.48], [0.30, 0.48],
-                        [0.30, 0.52], [0.15, 0.52],
+                        [0.15, 0.46], [0.30, 0.46],
+                        [0.30, 0.54], [0.15, 0.54],
                     ], 'opaque-outline');
                     drawUV([
-                        [0.55, 0.48], [0.70, 0.48],
-                        [0.70, 0.52], [0.55, 0.52],
+                        [0.55, 0.46], [0.70, 0.46],
+                        [0.70, 0.54], [0.55, 0.54],
                     ], 'opaque-outline');
                 }
 
-                // Detail lines on rails
-                drawUV([[0.0, 0.93], [1.0, 0.93]], 'line');
-                drawUV([[0.0, 0.63], [1.0, 0.63]], 'line');
-                drawUV([[0.0, 0.37], [1.0, 0.37]], 'line');
-                drawUV([[0.0, 0.07], [1.0, 0.07]], 'line');
-                drawUV([[0.0, 0.50], [1.0, 0.50]], 'line');
+                // Detail lines on rails (converted to filled rects)
+                drawUV([
+                    [0.0, 0.915], [1.0, 0.915],
+                    [1.0, 0.945], [0.0, 0.945],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.615], [1.0, 0.615],
+                    [1.0, 0.645], [0.0, 0.645],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.355], [1.0, 0.355],
+                    [1.0, 0.385], [0.0, 0.385],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.055], [1.0, 0.055],
+                    [1.0, 0.085], [0.0, 0.085],
+                ], baseStyle);
+                drawUV([
+                    [0.0, 0.485], [1.0, 0.485],
+                    [1.0, 0.515], [0.0, 0.515],
+                ], baseStyle);
                 break;
             }
 
@@ -439,6 +600,43 @@ const greekkeyPatterns: PatternSet = {
                     [0.80, 0.54], [0.64, 0.54],
                 ], baseStyle);
 
+                // Additional filled areas to reduce empty space
+                // Fill between top L-shapes and T-shape
+                drawUV([
+                    [0.20, 0.68], [0.28, 0.68],
+                    [0.28, 0.72], [0.20, 0.72],
+                ], baseStyle);
+                drawUV([
+                    [0.72, 0.68], [0.80, 0.68],
+                    [0.80, 0.72], [0.72, 0.72],
+                ], baseStyle);
+                // Fill between bottom L-shapes and T-shape
+                drawUV([
+                    [0.20, 0.28], [0.28, 0.28],
+                    [0.28, 0.32], [0.20, 0.32],
+                ], baseStyle);
+                drawUV([
+                    [0.72, 0.28], [0.80, 0.28],
+                    [0.80, 0.32], [0.72, 0.32],
+                ], baseStyle);
+                // Fill vertical gaps beside center block
+                drawUV([
+                    [0.20, 0.54], [0.36, 0.54],
+                    [0.36, 0.60], [0.20, 0.60],
+                ], baseStyle);
+                drawUV([
+                    [0.64, 0.54], [0.80, 0.54],
+                    [0.80, 0.60], [0.64, 0.60],
+                ], baseStyle);
+                drawUV([
+                    [0.20, 0.40], [0.36, 0.40],
+                    [0.36, 0.46], [0.20, 0.46],
+                ], baseStyle);
+                drawUV([
+                    [0.64, 0.40], [0.80, 0.40],
+                    [0.80, 0.46], [0.64, 0.46],
+                ], baseStyle);
+
                 if (filled) {
                     // Center block cutout
                     drawUV([
@@ -473,14 +671,34 @@ const greekkeyPatterns: PatternSet = {
                     ], 'opaque-outline');
                 }
 
-                // Grid detail lines
-                drawUV([[0.0, 0.50], [1.0, 0.50]], 'line');
-                drawUV([[0.50, 0.0], [0.50, 1.0]], 'line');
-                // Corner accent diagonals
-                drawUV([[0.20, 0.56], [0.28, 0.60]], 'line');
-                drawUV([[0.72, 0.56], [0.80, 0.60]], 'line');
-                drawUV([[0.20, 0.44], [0.28, 0.40]], 'line');
-                drawUV([[0.72, 0.44], [0.80, 0.40]], 'line');
+                // Grid detail lines (converted to filled rects)
+                // Horizontal center line
+                drawUV([
+                    [0.0, 0.485], [1.0, 0.485],
+                    [1.0, 0.515], [0.0, 0.515],
+                ], baseStyle);
+                // Vertical center line
+                drawUV([
+                    [0.485, 0.0], [0.515, 0.0],
+                    [0.515, 1.0], [0.485, 1.0],
+                ], baseStyle);
+                // Corner accent diagonals (converted to filled parallelograms)
+                drawUV([
+                    [0.20, 0.54], [0.22, 0.56],
+                    [0.30, 0.60], [0.28, 0.58],
+                ], baseStyle);
+                drawUV([
+                    [0.72, 0.54], [0.74, 0.56],
+                    [0.82, 0.60], [0.80, 0.58],
+                ], baseStyle);
+                drawUV([
+                    [0.20, 0.46], [0.22, 0.44],
+                    [0.30, 0.40], [0.28, 0.42],
+                ], baseStyle);
+                drawUV([
+                    [0.72, 0.46], [0.74, 0.44],
+                    [0.82, 0.40], [0.80, 0.42],
+                ], baseStyle);
                 break;
             }
         }

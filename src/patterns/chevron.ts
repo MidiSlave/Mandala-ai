@@ -10,6 +10,52 @@ function circlePoints(cx: number, cy: number, r: number, n: number): [number, nu
     return pts;
 }
 
+/**
+ * Build a filled band (thin rectangle) from a multi-point polyline.
+ * For each segment, we offset perpendicular to both sides by `half`.
+ * Returns a closed polygon suitable for 'filled' drawUV.
+ */
+function bandFromPolyline(pts: [number, number][], half: number): [number, number][] {
+    const left: [number, number][] = [];
+    const right: [number, number][] = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+        const [x1, y1] = pts[i];
+        const [x2, y2] = pts[i + 1];
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1e-9;
+        const nx = -dy / len * half;
+        const ny = dx / len * half;
+        if (i === 0) {
+            left.push([x1 + nx, y1 + ny]);
+            right.push([x1 - nx, y1 - ny]);
+        }
+        left.push([x2 + nx, y2 + ny]);
+        right.push([x2 - nx, y2 - ny]);
+    }
+    return [...left, ...right.reverse()];
+}
+
+/** Build a filled arc band between two radii from the same center. */
+function arcBand(
+    cx: number, cy: number,
+    rInner: number, rOuter: number,
+    startAngle: number, endAngle: number,
+    segments: number
+): [number, number][] {
+    const outer: [number, number][] = [];
+    const inner: [number, number][] = [];
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = startAngle + t * (endAngle - startAngle);
+        const sinA = Math.sin(angle);
+        const cosA = Math.cos(angle);
+        outer.push([cx + sinA * rOuter, cy + cosA * rOuter]);
+        inner.push([cx + sinA * rInner, cy + cosA * rInner]);
+    }
+    return [...outer, ...inner.reverse()];
+}
+
 const chevronPatterns: PatternSet = {
     name: 'Chevron / Herringbone',
     count: 5,
@@ -35,17 +81,23 @@ const chevronPatterns: PatternSet = {
                     [0.70, 0.37], [0.5, 0.53], [0.30, 0.37]
                 ], 'filled');
 
-                // Thin accent lines between the bands for separation
-                drawUV([[0.08, 0.12], [0.5, 0.88], [0.92, 0.12]], 'line');
-                drawUV([[0.22, 0.22], [0.5, 0.73], [0.78, 0.22]], 'line');
+                // Thin accent bands between the main bands for separation
+                drawUV(bandFromPolyline([
+                    [0.08, 0.12], [0.5, 0.88], [0.92, 0.12]
+                ], 0.015), 'filled');
+                drawUV(bandFromPolyline([
+                    [0.22, 0.22], [0.5, 0.73], [0.78, 0.22]
+                ], 0.015), 'filled');
 
-                // Small cap line at the very top of inner chevron
-                drawUV([[0.38, 0.30], [0.5, 0.48], [0.62, 0.30]], 'line');
+                // Small cap band at the very top of inner chevron
+                drawUV(bandFromPolyline([
+                    [0.38, 0.30], [0.5, 0.48], [0.62, 0.30]
+                ], 0.012), 'filled');
                 break;
             }
 
             case 1: {
-                // Herringbone weave — interlocking parallelograms with seam lines
+                // Herringbone weave — interlocking parallelograms with seam bands
                 // Left parallelogram block
                 drawUV([
                     [0, 0], [0.5, 0.5], [0.5, 1], [0, 0.5]
@@ -56,30 +108,38 @@ const chevronPatterns: PatternSet = {
                     [0.5, 0.5], [1, 0], [1, 0.5], [0.5, 1]
                 ], filled ? 'opaque-outline' : 'outline');
 
-                // Seam lines — thin horizontal and vertical dividers
-                drawUV([[0, 0.5], [0.5, 1]], 'line');
-                drawUV([[0.5, 0], [0, 0.5]], 'line');
-                drawUV([[0.5, 0.5], [1, 0]], 'line');
-                drawUV([[1, 0.5], [0.5, 1]], 'line');
+                // Seam bands — thin filled rectangles replacing lines
+                const sw = 0.015; // seam half-width
+                drawUV(bandFromPolyline([[0, 0.5], [0.5, 1]], sw), 'filled');
+                drawUV(bandFromPolyline([[0.5, 0], [0, 0.5]], sw), 'filled');
+                drawUV(bandFromPolyline([[0.5, 0.5], [1, 0]], sw), 'filled');
+                drawUV(bandFromPolyline([[1, 0.5], [0.5, 1]], sw), 'filled');
 
                 // Vertical seam down the center
-                drawUV([[0.5, 0], [0.5, 1]], 'line');
+                drawUV([
+                    [0.5 - sw, 0], [0.5 + sw, 0],
+                    [0.5 + sw, 1], [0.5 - sw, 1]
+                ], 'filled');
 
                 // Horizontal seam across the middle
-                drawUV([[0, 0.5], [1, 0.5]], 'line');
+                drawUV([
+                    [0, 0.5 - sw], [1, 0.5 - sw],
+                    [1, 0.5 + sw], [0, 0.5 + sw]
+                ], 'filled');
 
-                // Interior diagonal texture lines within left block
-                drawUV([[0.1, 0.15], [0.4, 0.65]], 'line');
-                drawUV([[0.1, 0.35], [0.3, 0.75]], 'line');
+                // Interior diagonal texture bands within left block
+                drawUV(bandFromPolyline([[0.1, 0.15], [0.4, 0.65]], 0.02), 'filled');
+                drawUV(bandFromPolyline([[0.1, 0.35], [0.3, 0.75]], 0.02), 'filled');
 
-                // Interior diagonal texture lines within right block
-                drawUV([[0.6, 0.65], [0.9, 0.15]], 'line');
-                drawUV([[0.7, 0.75], [0.9, 0.35]], 'line');
+                // Interior diagonal texture bands within right block
+                drawUV(bandFromPolyline([[0.6, 0.65], [0.9, 0.15]], 0.02), 'filled');
+                drawUV(bandFromPolyline([[0.7, 0.75], [0.9, 0.35]], 0.02), 'filled');
                 break;
             }
 
             case 2: {
                 // Arrow with fletching — large arrow filling most of tile vertically (v 0.1-0.9)
+                const bw = 0.015; // band half-width
 
                 // === Shaft — thick bold shaft across the tile ===
                 const shaftTop = 0.40;
@@ -88,25 +148,40 @@ const chevronPatterns: PatternSet = {
                     [0.05, shaftTop], [0.60, shaftTop],
                     [0.60, shaftBot], [0.05, shaftBot]
                 ], filled ? 'filled' : 'outline');
-                // Center line along shaft
-                drawUV([[0.05, 0.5], [0.60, 0.5]], 'line');
-                // Shaft edge accent lines
-                drawUV([[0.08, shaftTop - 0.02], [0.55, shaftTop - 0.02]], 'line');
-                drawUV([[0.08, shaftBot + 0.02], [0.55, shaftBot + 0.02]], 'line');
+                // Center band along shaft
+                drawUV([
+                    [0.05, 0.5 - bw], [0.60, 0.5 - bw],
+                    [0.60, 0.5 + bw], [0.05, 0.5 + bw]
+                ], 'filled');
+                // Shaft edge accent bands
+                drawUV([
+                    [0.08, shaftTop - 0.02 - bw], [0.55, shaftTop - 0.02 - bw],
+                    [0.55, shaftTop - 0.02 + bw], [0.08, shaftTop - 0.02 + bw]
+                ], 'filled');
+                drawUV([
+                    [0.08, shaftBot + 0.02 - bw], [0.55, shaftBot + 0.02 - bw],
+                    [0.55, shaftBot + 0.02 + bw], [0.08, shaftBot + 0.02 + bw]
+                ], 'filled');
 
                 // === Arrowhead — large filled triangle spanning v 0.08 to 0.92 ===
                 drawUV([
                     [0.58, 0.08], [0.96, 0.50], [0.58, 0.92]
                 ], 'filled');
-                drawUV([
+                // Arrowhead outline as filled band
+                drawUV(bandFromPolyline([
                     [0.58, 0.08], [0.96, 0.50], [0.58, 0.92], [0.58, 0.08]
-                ], 'line');
-                // Inner detail lines on arrowhead
-                drawUV([[0.62, 0.22], [0.88, 0.50]], 'line');
-                drawUV([[0.62, 0.78], [0.88, 0.50]], 'line');
-                drawUV([[0.62, 0.50], [0.85, 0.50]], 'line');
-                // Extra arrowhead detail — inner chevron lines
-                drawUV([[0.64, 0.35], [0.78, 0.50], [0.64, 0.65]], 'line');
+                ], 0.012), 'filled');
+                // Inner detail bands on arrowhead
+                drawUV(bandFromPolyline([[0.62, 0.22], [0.88, 0.50]], 0.02), 'filled');
+                drawUV(bandFromPolyline([[0.62, 0.78], [0.88, 0.50]], 0.02), 'filled');
+                drawUV([
+                    [0.62, 0.5 - 0.02], [0.85, 0.5 - 0.02],
+                    [0.85, 0.5 + 0.02], [0.62, 0.5 + 0.02]
+                ], 'filled');
+                // Extra arrowhead detail — inner chevron band
+                drawUV(bandFromPolyline([
+                    [0.64, 0.35], [0.78, 0.50], [0.64, 0.65]
+                ], 0.018), 'filled');
 
                 // === Fletching — 4 pairs spanning v 0.05 to 0.95 ===
                 // First pair (rear) — largest vanes
@@ -141,22 +216,40 @@ const chevronPatterns: PatternSet = {
                     [0.30, shaftBot], [0.34, 0.74], [0.40, 0.70], [0.35, shaftBot]
                 ], filled ? 'opaque-outline' : 'outline');
 
-                // Fletching detail lines (barb texture) — more lines spanning further
+                // Fletching detail bands (barb texture) — filled bands instead of lines
                 for (let i = 0; i < 5; i++) {
                     const u = 0.04 + i * 0.04;
-                    drawUV([[u, shaftTop], [u + 0.04, 0.12 + i * 0.03]], 'line');
-                    drawUV([[u, shaftBot], [u + 0.04, 0.88 - i * 0.03]], 'line');
+                    drawUV(bandFromPolyline([
+                        [u, shaftTop], [u + 0.04, 0.12 + i * 0.03]
+                    ], 0.012), 'filled');
+                    drawUV(bandFromPolyline([
+                        [u, shaftBot], [u + 0.04, 0.88 - i * 0.03]
+                    ], 0.012), 'filled');
                 }
 
                 // === Nock — notch at tail ===
-                drawUV([[0.01, 0.32], [0.05, 0.50], [0.01, 0.68]], 'line');
-                drawUV([[0.00, 0.35], [0.00, 0.65]], 'line');
+                drawUV(bandFromPolyline([
+                    [0.01, 0.32], [0.05, 0.50], [0.01, 0.68]
+                ], 0.015), 'filled');
+                drawUV([
+                    [0.00, 0.35], [0.025, 0.35],
+                    [0.025, 0.65], [0.00, 0.65]
+                ], 'filled');
 
                 // === Decorative elements above arrow (v 0.02-0.35) ===
-                // Horizontal lines
-                drawUV([[0.30, 0.10], [0.58, 0.10]], 'line');
-                drawUV([[0.35, 0.06], [0.53, 0.06]], 'line');
-                drawUV([[0.25, 0.14], [0.55, 0.14]], 'line');
+                // Horizontal filled rectangles
+                drawUV([
+                    [0.30, 0.10 - bw], [0.58, 0.10 - bw],
+                    [0.58, 0.10 + bw], [0.30, 0.10 + bw]
+                ], 'filled');
+                drawUV([
+                    [0.35, 0.06 - bw], [0.53, 0.06 - bw],
+                    [0.53, 0.06 + bw], [0.35, 0.06 + bw]
+                ], 'filled');
+                drawUV([
+                    [0.25, 0.14 - bw], [0.55, 0.14 - bw],
+                    [0.55, 0.14 + bw], [0.25, 0.14 + bw]
+                ], 'filled');
                 // Row of dots near top
                 for (let i = 0; i < 5; i++) {
                     const u = 0.30 + i * 0.06;
@@ -169,17 +262,29 @@ const chevronPatterns: PatternSet = {
                         [cu, 0.18], [cu + 0.025, 0.24], [cu - 0.025, 0.24]
                     ], filled ? 'filled' : 'outline');
                 }
-                // Tick marks along upper region
+                // Tick marks along upper region — filled rectangles instead of lines
                 for (let i = 0; i < 6; i++) {
                     const u = 0.20 + i * 0.07;
-                    drawUV([[u, 0.28], [u, 0.34]], 'line');
+                    drawUV([
+                        [u - bw, 0.28], [u + bw, 0.28],
+                        [u + bw, 0.34], [u - bw, 0.34]
+                    ], 'filled');
                 }
 
                 // === Decorative elements below arrow (v 0.65-0.98) ===
-                // Horizontal lines
-                drawUV([[0.30, 0.90], [0.58, 0.90]], 'line');
-                drawUV([[0.35, 0.94], [0.53, 0.94]], 'line');
-                drawUV([[0.25, 0.86], [0.55, 0.86]], 'line');
+                // Horizontal filled rectangles
+                drawUV([
+                    [0.30, 0.90 - bw], [0.58, 0.90 - bw],
+                    [0.58, 0.90 + bw], [0.30, 0.90 + bw]
+                ], 'filled');
+                drawUV([
+                    [0.35, 0.94 - bw], [0.53, 0.94 - bw],
+                    [0.53, 0.94 + bw], [0.35, 0.94 + bw]
+                ], 'filled');
+                drawUV([
+                    [0.25, 0.86 - bw], [0.55, 0.86 - bw],
+                    [0.55, 0.86 + bw], [0.25, 0.86 + bw]
+                ], 'filled');
                 // Row of dots near bottom
                 for (let i = 0; i < 5; i++) {
                     const u = 0.30 + i * 0.06;
@@ -192,10 +297,13 @@ const chevronPatterns: PatternSet = {
                         [cu, 0.82], [cu + 0.025, 0.76], [cu - 0.025, 0.76]
                     ], filled ? 'filled' : 'outline');
                 }
-                // Tick marks along lower region
+                // Tick marks along lower region — filled rectangles instead of lines
                 for (let i = 0; i < 6; i++) {
                     const u = 0.20 + i * 0.07;
-                    drawUV([[u, 0.66], [u, 0.72]], 'line');
+                    drawUV([
+                        [u - bw, 0.66], [u + bw, 0.66],
+                        [u + bw, 0.72], [u - bw, 0.72]
+                    ], 'filled');
                 }
 
                 // Small diamond accents along shaft
@@ -210,7 +318,7 @@ const chevronPatterns: PatternSet = {
             }
 
             case 3: {
-                // Zigzag ribbon — wide zigzag filling the cell with center line and diamonds
+                // Zigzag ribbon — wide zigzag filling the cell with center band and diamonds
                 // 5 peaks across u: peaks at u = 0.1, 0.3, 0.5, 0.7, 0.9
                 const ribbonHalf = 0.12; // half-thickness of ribbon in v
 
@@ -238,8 +346,8 @@ const chevronPatterns: PatternSet = {
                 // Filled ribbon polygon (outer edge forward, inner edge reversed)
                 drawUV([...outerEdge, ...innerEdge], baseStyle);
 
-                // Center line following the zigzag
-                drawUV([
+                // Center band following the zigzag (filled band instead of line)
+                drawUV(bandFromPolyline([
                     [0, 0.5],
                     [0.1, 0.85],
                     [0.3, 0.15],
@@ -247,12 +355,12 @@ const chevronPatterns: PatternSet = {
                     [0.7, 0.15],
                     [0.9, 0.85],
                     [1, 0.5]
-                ], 'line');
+                ], 0.02), 'filled');
 
-                // Outer edge line for crispness
-                drawUV(outerEdge, 'line');
-                // Inner edge line for crispness
-                drawUV([...innerEdge].reverse(), 'line');
+                // Outer edge band for crispness
+                drawUV(bandFromPolyline(outerEdge, 0.015), 'filled');
+                // Inner edge band for crispness
+                drawUV(bandFromPolyline([...innerEdge].reverse(), 0.015), 'filled');
 
                 // Small filled diamonds at each peak and valley
                 const diamondSize = 0.03;
@@ -277,8 +385,10 @@ const chevronPatterns: PatternSet = {
                 const numRays = 7;
                 const arcV = 0.9;
                 const fanHalfAngle = Math.PI * 0.42; // spread angle
+                const arcSegments = 24;
+                const bandHalf = 0.025; // half-width for ray wedges
 
-                // Draw radiating lines from [0.5, 0] to the top edge
+                // Draw radiating filled wedges from [0.5, 0] to the top edge
                 const rayTips: [number, number][] = [];
                 for (let i = 0; i < numRays; i++) {
                     const t = i / (numRays - 1); // 0..1
@@ -286,7 +396,16 @@ const chevronPatterns: PatternSet = {
                     const tipU = cx + Math.sin(angle) * arcV;
                     const tipV = cy + Math.cos(angle) * arcV;
                     rayTips.push([tipU, tipV]);
-                    drawUV([[cx, cy], [tipU, tipV]], 'line');
+
+                    // Filled wedge shape instead of line
+                    const perpU = Math.cos(angle) * bandHalf;
+                    const perpV = -Math.sin(angle) * bandHalf;
+                    drawUV([
+                        [cx - perpU, cy - perpV],
+                        [tipU - perpU, tipV - perpV],
+                        [tipU + perpU, tipV + perpV],
+                        [cx + perpU, cy + perpV]
+                    ], 'filled');
                 }
 
                 // Alternating filled/empty wedge sectors between rays
@@ -301,45 +420,31 @@ const chevronPatterns: PatternSet = {
                     }
                 }
 
-                // Semicircular arc at v=0.9 connecting the tips
-                // Approximate arc with segments between each ray tip
-                const arcSegments = 24;
-                const arcPoints: [number, number][] = [];
-                for (let i = 0; i <= arcSegments; i++) {
-                    const t = i / arcSegments;
-                    const angle = -fanHalfAngle + t * 2 * fanHalfAngle;
-                    arcPoints.push([
-                        cx + Math.sin(angle) * arcV,
-                        cy + Math.cos(angle) * arcV
-                    ]);
-                }
-                drawUV(arcPoints, 'line');
+                // Filled arc band at v=0.9 connecting the tips
+                drawUV(arcBand(
+                    cx, cy,
+                    arcV - 0.025, arcV + 0.025,
+                    -fanHalfAngle, fanHalfAngle,
+                    arcSegments
+                ), 'filled');
 
-                // Second inner arc at v=0.6 for Art Deco layering
+                // Second filled arc band at v=0.6 for Art Deco layering
                 const innerArcV = 0.6;
-                const innerArc: [number, number][] = [];
-                for (let i = 0; i <= arcSegments; i++) {
-                    const t = i / arcSegments;
-                    const angle = -fanHalfAngle + t * 2 * fanHalfAngle;
-                    innerArc.push([
-                        cx + Math.sin(angle) * innerArcV,
-                        cy + Math.cos(angle) * innerArcV
-                    ]);
-                }
-                drawUV(innerArc, 'line');
+                drawUV(arcBand(
+                    cx, cy,
+                    innerArcV - 0.02, innerArcV + 0.02,
+                    -fanHalfAngle, fanHalfAngle,
+                    arcSegments
+                ), 'filled');
 
-                // Small decorative arc near base at v=0.3
+                // Small decorative arc band near base at v=0.3
                 const baseArcV = 0.3;
-                const baseArc: [number, number][] = [];
-                for (let i = 0; i <= arcSegments; i++) {
-                    const t = i / arcSegments;
-                    const angle = -fanHalfAngle + t * 2 * fanHalfAngle;
-                    baseArc.push([
-                        cx + Math.sin(angle) * baseArcV,
-                        cy + Math.cos(angle) * baseArcV
-                    ]);
-                }
-                drawUV(baseArc, 'line');
+                drawUV(arcBand(
+                    cx, cy,
+                    baseArcV - 0.018, baseArcV + 0.018,
+                    -fanHalfAngle, fanHalfAngle,
+                    arcSegments
+                ), 'filled');
 
                 // Small filled semicircle at base
                 drawUV([

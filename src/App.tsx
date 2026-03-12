@@ -634,7 +634,7 @@ export default function App() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
+                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
                         style={{ zIndex: 40 }}
                     >
                         <button
@@ -644,12 +644,12 @@ export default function App() {
                             <X size={20} />
                         </button>
 
-                        <div className="text-center mb-6">
-                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
-                            <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
+                        <div className="text-center mb-4 sm:mb-6 mt-2 sm:mt-0">
+                            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
+                            <p className="text-[10px] sm:text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Hand className="mb-2 text-black/70" size={24} />
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pan 1 Finger</span>
@@ -776,20 +776,20 @@ export default function App() {
                             </div>
                         )}
 
-                        <div className="pointer-events-auto flex justify-center gap-3">
+                        <div className="pointer-events-auto flex justify-center gap-2 sm:gap-3 sticky bottom-0 pt-3 pb-1 bg-white/90 backdrop-blur-xl -mx-4 sm:-mx-6 px-4 sm:px-6">
                             <button
                                 onPointerDown={(e) => { e.stopPropagation(); toggleAutoAnimate(); }}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
+                                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
                             >
-                                {isAutoAnimating ? <Pause size={18} /> : <Play size={18} />}
+                                {isAutoAnimating ? <Pause size={16} /> : <Play size={16} />}
                                 {isAutoAnimating ? 'Stop' : 'Animate'}
                             </button>
                             <button
                                 onPointerDown={(e) => { e.stopPropagation(); handleRandomize(); }}
-                                className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
+                                className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-black text-white rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
                             >
-                                <Shuffle size={18} />
-                                Randomize Now
+                                <Shuffle size={16} />
+                                Randomize
                             </button>
                         </div>
                     </motion.div>

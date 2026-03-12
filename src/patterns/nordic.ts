@@ -5,10 +5,9 @@ const nordicPatterns: PatternSet = {
     count: 5,
     draw: (type: number, { drawUV, filled, baseStyle }: PatternContext) => {
         switch (type) {
-            case 0: { // Diamond lattice with nested diamonds, corner fills, dotted borders, cross-hatch
+            case 0: { // Diamond lattice with nested diamonds, corner fills, solid infill sections
                 const mainStyle = filled ? 'filled' : 'outline';
                 const detailStyle = filled ? 'opaque-outline' : 'filled';
-                const lineStyle = filled ? 'opaque-outline' : 'outline';
 
                 // === Outer diamond (large) ===
                 drawUV([
@@ -30,60 +29,103 @@ const nordicPatterns: PatternSet = {
                     [0.5, 0.40], [0.60, 0.5], [0.5, 0.60], [0.40, 0.5]
                 ], detailStyle);
 
-                // === Cross-hatch lines inside middle diamond ring ===
-                // Diagonal lines going top-left to bottom-right
-                drawUV([[0.35, 0.25], [0.75, 0.65]], lineStyle === 'opaque-outline' ? 'line' : 'line');
-                drawUV([[0.25, 0.35], [0.65, 0.75]], 'line');
-                drawUV([[0.45, 0.20], [0.82, 0.55]], 'line');
-                drawUV([[0.20, 0.45], [0.55, 0.82]], 'line');
-                // Diagonal lines going top-right to bottom-left
-                drawUV([[0.65, 0.25], [0.25, 0.65]], 'line');
-                drawUV([[0.75, 0.35], [0.35, 0.75]], 'line');
-                drawUV([[0.55, 0.20], [0.18, 0.55]], 'line');
-                drawUV([[0.80, 0.45], [0.45, 0.82]], 'line');
+                // === Solid filled sections between middle and inner diamond rings ===
+                // Instead of crosshatch lines, fill alternating triangular wedges
+
+                // Top wedge (between middle and inner diamond, top section)
+                drawUV([
+                    [0.5, 0.18], [0.82, 0.5], [0.69, 0.5], [0.5, 0.31]
+                ], mainStyle);
+
+                // Bottom wedge
+                drawUV([
+                    [0.5, 0.82], [0.18, 0.5], [0.31, 0.5], [0.5, 0.69]
+                ], mainStyle);
+
+                // Left wedge - solid fill
+                drawUV([
+                    [0.18, 0.5], [0.5, 0.18], [0.5, 0.31], [0.31, 0.5]
+                ], detailStyle);
+
+                // Right wedge - solid fill
+                drawUV([
+                    [0.82, 0.5], [0.5, 0.82], [0.5, 0.69], [0.69, 0.5]
+                ], detailStyle);
+
+                // === Solid corner triangles between outer diamond and tile edges ===
+                // Top-left corner fill
+                drawUV([
+                    [0.0, 0.0], [0.5, 0.05], [0.05, 0.5], [0.0, 0.5]
+                ], mainStyle);
+                drawUV([
+                    [0.0, 0.0], [0.5, 0.05], [0.5, 0.0]
+                ], mainStyle);
+
+                // Top-right corner fill
+                drawUV([
+                    [1.0, 0.0], [0.95, 0.5], [0.5, 0.05], [0.5, 0.0]
+                ], mainStyle);
+                drawUV([
+                    [1.0, 0.0], [1.0, 0.5], [0.95, 0.5]
+                ], mainStyle);
+
+                // Bottom-left corner fill
+                drawUV([
+                    [0.0, 1.0], [0.05, 0.5], [0.5, 0.95], [0.5, 1.0]
+                ], mainStyle);
+                drawUV([
+                    [0.0, 1.0], [0.0, 0.5], [0.05, 0.5]
+                ], mainStyle);
+
+                // Bottom-right corner fill
+                drawUV([
+                    [1.0, 1.0], [0.5, 0.95], [0.95, 0.5], [1.0, 0.5]
+                ], mainStyle);
+                drawUV([
+                    [1.0, 1.0], [0.5, 1.0], [0.5, 0.95]
+                ], mainStyle);
 
                 // === Small filled diamonds at 4 corners of tile ===
-                const cd = 0.08;
                 // Top-left corner
                 drawUV([
                     [0.08, 0.0], [0.16, 0.08], [0.08, 0.16], [0.0, 0.08]
-                ], mainStyle);
+                ], detailStyle);
                 // Top-right corner
                 drawUV([
                     [0.92, 0.0], [1.0, 0.08], [0.92, 0.16], [0.84, 0.08]
-                ], mainStyle);
+                ], detailStyle);
                 // Bottom-left corner
                 drawUV([
                     [0.08, 0.84], [0.16, 0.92], [0.08, 1.0], [0.0, 0.92]
-                ], mainStyle);
+                ], detailStyle);
                 // Bottom-right corner
                 drawUV([
                     [0.92, 0.84], [1.0, 0.92], [0.92, 1.0], [0.84, 0.92]
-                ], mainStyle);
+                ], detailStyle);
 
                 // === Dotted border band along top edge ===
-                const dotR = 0.025;
+                const dotR = 0.03;
                 for (let i = 0; i < 7; i++) {
                     const dx = 0.2 + i * 0.1;
                     drawUV([
-                        [dx, 0.0], [dx + dotR, 0.025], [dx, 0.05], [dx - dotR, 0.025]
-                    ], mainStyle);
+                        [dx, 0.0], [dx + dotR, 0.03], [dx, 0.06], [dx - dotR, 0.03]
+                    ], detailStyle);
                 }
                 // === Dotted border band along bottom edge ===
                 for (let i = 0; i < 7; i++) {
                     const dx = 0.2 + i * 0.1;
                     drawUV([
-                        [dx, 0.95], [dx + dotR, 0.975], [dx, 1.0], [dx - dotR, 0.975]
-                    ], mainStyle);
+                        [dx, 0.94], [dx + dotR, 0.97], [dx, 1.0], [dx - dotR, 0.97]
+                    ], detailStyle);
                 }
 
-                // === Additional small diamonds on left and right edges ===
+                // === Additional filled diamonds on left and right edges ===
                 drawUV([
                     [0.0, 0.42], [0.06, 0.5], [0.0, 0.58], [-0.04, 0.5]
-                ], mainStyle);
+                ], detailStyle);
                 drawUV([
                     [1.0, 0.42], [1.04, 0.5], [1.0, 0.58], [0.94, 0.5]
-                ], mainStyle);
+                ], detailStyle);
 
                 break;
             }
@@ -92,12 +134,12 @@ const nordicPatterns: PatternSet = {
                 const cx = 0.5;
                 const cy = 0.5;
                 const armLen = 0.42;
-                const armW = 0.035; // half-width of arm rectangles
+                const armW = 0.045; // half-width of arm rectangles (wider than before)
                 const mainStyle = filled ? 'filled' : 'outline';
                 const detailStyle = filled ? 'opaque-outline' : 'filled';
 
                 // === Hexagonal center ===
-                const hr = 0.12;
+                const hr = 0.14;
                 drawUV([
                     [cx, cy - hr],
                     [cx + hr * 0.866, cy - hr * 0.5],
@@ -108,7 +150,7 @@ const nordicPatterns: PatternSet = {
                 ], mainStyle);
 
                 // Inner hexagon (detail)
-                const hr2 = 0.065;
+                const hr2 = 0.075;
                 drawUV([
                     [cx, cy - hr2],
                     [cx + hr2 * 0.866, cy - hr2 * 0.5],
@@ -140,9 +182,9 @@ const nordicPatterns: PatternSet = {
                     [cx + armLen, cy + armW], [cx + armLen, cy - armW]
                 ], mainStyle);
 
-                // === 4 diagonal arms as thick rectangles ===
+                // === 4 diagonal arms as thick parallelograms ===
                 const da = armLen * 0.707;
-                const dw = armW * 1.2;
+                const dw = armW * 1.4; // wider diagonal arms
                 // Top-left diagonal arm
                 drawUV([
                     [cx - da + dw, cy - da - dw], [cx - da - dw, cy - da + dw],
@@ -164,9 +206,9 @@ const nordicPatterns: PatternSet = {
                     [cx + dw, cy + dw], [cx - dw, cy - dw]
                 ], mainStyle);
 
-                // === Branch forks on vertical/horizontal arms ===
-                const branchLen = 0.09;
-                const branchW = 0.02;
+                // === Branch forks on vertical/horizontal arms (wider) ===
+                const branchLen = 0.11;
+                const branchW = 0.03;
                 // Branches on UP arm at 1/3 and 2/3
                 for (const frac of [0.33, 0.66]) {
                     const by = cy - hr - (armLen - hr) * frac;
@@ -218,8 +260,8 @@ const nordicPatterns: PatternSet = {
                     ], mainStyle);
                 }
 
-                // === Diamond tips at end of each cardinal arm ===
-                const td = 0.045;
+                // === Diamond tips at end of each cardinal arm (larger) ===
+                const td = 0.055;
                 // Top
                 drawUV([
                     [cx, cy - armLen - td], [cx + td, cy - armLen],
@@ -241,6 +283,21 @@ const nordicPatterns: PatternSet = {
                     [cx + armLen, cy + td], [cx + armLen - td, cy]
                 ], mainStyle);
 
+                // === Filled corner squares to add solidity ===
+                const cs = 0.08;
+                drawUV([
+                    [0.0, 0.0], [cs, 0.0], [cs, cs], [0.0, cs]
+                ], mainStyle);
+                drawUV([
+                    [1.0 - cs, 0.0], [1.0, 0.0], [1.0, cs], [1.0 - cs, cs]
+                ], mainStyle);
+                drawUV([
+                    [0.0, 1.0 - cs], [cs, 1.0 - cs], [cs, 1.0], [0.0, 1.0]
+                ], mainStyle);
+                drawUV([
+                    [1.0 - cs, 1.0 - cs], [1.0, 1.0 - cs], [1.0, 1.0], [1.0 - cs, 1.0]
+                ], mainStyle);
+
                 break;
             }
 
@@ -248,42 +305,58 @@ const nordicPatterns: PatternSet = {
                 const mainStyle = filled ? 'filled' : 'outline';
                 const detailStyle = filled ? 'opaque-outline' : 'filled';
 
-                // === Border bands top and bottom ===
+                // === Border bands top and bottom (thicker) ===
                 drawUV([
-                    [0.0, 0.0], [1.0, 0.0], [1.0, 0.06], [0.0, 0.06]
+                    [0.0, 0.0], [1.0, 0.0], [1.0, 0.08], [0.0, 0.08]
                 ], mainStyle);
                 drawUV([
-                    [0.0, 0.94], [1.0, 0.94], [1.0, 1.0], [0.0, 1.0]
+                    [0.0, 0.92], [1.0, 0.92], [1.0, 1.0], [0.0, 1.0]
                 ], mainStyle);
 
                 // === Deer body (large, filling tile) ===
                 drawUV([
-                    [0.18, 0.38], [0.78, 0.38],
-                    [0.78, 0.60], [0.18, 0.60]
+                    [0.18, 0.36], [0.78, 0.36],
+                    [0.78, 0.62], [0.18, 0.62]
+                ], mainStyle);
+
+                // === Chest/shoulder bulk ===
+                drawUV([
+                    [0.68, 0.30], [0.82, 0.30],
+                    [0.82, 0.44], [0.68, 0.44]
                 ], mainStyle);
 
                 // === Neck (connects body to head, angled up) ===
                 drawUV([
-                    [0.72, 0.28], [0.82, 0.28],
-                    [0.82, 0.42], [0.72, 0.42]
+                    [0.70, 0.24], [0.84, 0.24],
+                    [0.84, 0.40], [0.70, 0.40]
                 ], mainStyle);
 
                 // === Head ===
                 drawUV([
-                    [0.74, 0.22], [0.90, 0.22],
-                    [0.92, 0.30], [0.90, 0.38],
-                    [0.74, 0.38]
+                    [0.74, 0.20], [0.92, 0.20],
+                    [0.94, 0.30], [0.92, 0.40],
+                    [0.74, 0.40]
                 ], mainStyle);
 
-                // === Tail ===
+                // === Snout detail ===
                 drawUV([
-                    [0.10, 0.36], [0.18, 0.38],
-                    [0.18, 0.44], [0.10, 0.42]
+                    [0.90, 0.26], [0.96, 0.28], [0.96, 0.34], [0.90, 0.36]
+                ], mainStyle);
+
+                // === Tail (thicker) ===
+                drawUV([
+                    [0.08, 0.34], [0.18, 0.36],
+                    [0.18, 0.46], [0.08, 0.44]
+                ], mainStyle);
+                // Tail flare
+                drawUV([
+                    [0.04, 0.32], [0.10, 0.34],
+                    [0.10, 0.40], [0.04, 0.38]
                 ], mainStyle);
 
                 // === 4 thick legs ===
-                const legW = 0.04;
-                const legTop = 0.60;
+                const legW = 0.05;
+                const legTop = 0.62;
                 const legBot = 0.80;
                 const legXs = [0.24, 0.38, 0.56, 0.70];
                 for (const lx of legXs) {
@@ -291,72 +364,78 @@ const nordicPatterns: PatternSet = {
                         [lx - legW, legTop], [lx + legW, legTop],
                         [lx + legW, legBot], [lx - legW, legBot]
                     ], mainStyle);
-                    // Hooves (small wider rectangle at bottom)
+                    // Hooves (wider filled rectangle at bottom)
                     drawUV([
-                        [lx - legW - 0.015, legBot], [lx + legW + 0.015, legBot],
-                        [lx + legW + 0.015, legBot + 0.04], [lx - legW - 0.015, legBot + 0.04]
+                        [lx - legW - 0.02, legBot], [lx + legW + 0.02, legBot],
+                        [lx + legW + 0.02, legBot + 0.05], [lx - legW - 0.02, legBot + 0.05]
                     ], mainStyle);
                 }
 
                 // === Antlers (thick, branching) ===
                 // Left antler main beam
                 drawUV([
-                    [0.76, 0.22], [0.79, 0.22],
-                    [0.77, 0.08], [0.74, 0.08]
+                    [0.74, 0.20], [0.79, 0.20],
+                    [0.77, 0.06], [0.72, 0.06]
                 ], mainStyle);
-                // Left antler tines
+                // Left antler tines (wider parallelograms)
                 drawUV([
-                    [0.74, 0.08], [0.69, 0.04], [0.71, 0.02], [0.76, 0.06]
+                    [0.72, 0.06], [0.66, 0.01], [0.69, -0.01], [0.75, 0.04]
                 ], mainStyle);
                 drawUV([
-                    [0.75, 0.14], [0.70, 0.10], [0.72, 0.08], [0.76, 0.12]
+                    [0.73, 0.13], [0.67, 0.08], [0.70, 0.06], [0.75, 0.11]
                 ], mainStyle);
 
                 // Right antler main beam
                 drawUV([
-                    [0.82, 0.22], [0.85, 0.22],
-                    [0.87, 0.08], [0.84, 0.08]
+                    [0.82, 0.20], [0.87, 0.20],
+                    [0.89, 0.06], [0.84, 0.06]
                 ], mainStyle);
                 // Right antler tines
                 drawUV([
-                    [0.87, 0.08], [0.92, 0.04], [0.90, 0.02], [0.85, 0.06]
+                    [0.89, 0.06], [0.94, 0.01], [0.92, -0.01], [0.87, 0.04]
                 ], mainStyle);
                 drawUV([
-                    [0.86, 0.14], [0.91, 0.10], [0.89, 0.08], [0.85, 0.12]
+                    [0.88, 0.13], [0.93, 0.08], [0.91, 0.06], [0.86, 0.11]
                 ], mainStyle);
 
                 // === Eye ===
-                const ed = 0.02;
+                const ed = 0.025;
                 drawUV([
-                    [0.86, 0.28], [0.88, 0.30], [0.86, 0.32], [0.84, 0.30]
+                    [0.86, 0.27], [0.885, 0.295], [0.86, 0.32], [0.835, 0.295]
                 ], detailStyle);
 
-                // === Body detail: diamond pattern on body ===
-                const bd = 0.03;
-                for (const [bx, by] of [[0.35, 0.49], [0.50, 0.49], [0.65, 0.49]] as [number, number][]) {
+                // === Body detail: filled diamond pattern on body ===
+                const bd = 0.04;
+                for (const [bx, by] of [[0.30, 0.49], [0.42, 0.49], [0.54, 0.49], [0.66, 0.49]] as [number, number][]) {
                     drawUV([
                         [bx, by - bd], [bx + bd, by], [bx, by + bd], [bx - bd, by]
                     ], detailStyle);
                 }
 
-                // === Ground band with zigzag ===
+                // === Belly band detail ===
                 drawUV([
-                    [0.0, 0.86], [1.0, 0.86], [1.0, 0.94], [0.0, 0.94]
+                    [0.20, 0.56], [0.76, 0.56], [0.76, 0.60], [0.20, 0.60]
+                ], detailStyle);
+
+                // === Ground band with zigzag (thicker) ===
+                drawUV([
+                    [0.0, 0.84], [1.0, 0.84], [1.0, 0.92], [0.0, 0.92]
                 ], mainStyle);
                 // Zigzag cutouts in ground band
                 for (let i = 0; i < 10; i++) {
                     const zx = 0.05 + i * 0.1;
                     drawUV([
-                        [zx, 0.86], [zx + 0.05, 0.90], [zx + 0.10, 0.86]
+                        [zx, 0.84], [zx + 0.05, 0.88], [zx + 0.10, 0.84]
                     ], detailStyle);
                 }
 
-                // === Small pine tree on left ===
+                // === Small pine tree on left (larger) ===
                 drawUV([
-                    [0.06, 0.55], [0.14, 0.80], [-0.02, 0.80]
+                    [0.06, 0.50], [0.16, 0.80], [-0.04, 0.80]
                 ], mainStyle);
+                // Trunk (wider)
                 drawUV([
-                    [0.04, 0.80], [0.08, 0.80], [0.08, 0.86], [0.04, 0.86]
+                    [0.03, 0.80], [0.09, 0.80], [0.09, 0.86], [0.03, 0.86]
                 ], mainStyle);
 
                 break;
@@ -380,16 +459,16 @@ const nordicPatterns: PatternSet = {
                     [0.42, 0.04], [0.64, 0.32], [0.20, 0.32]
                 ], mainStyle);
 
-                // Trunk
+                // Trunk (wider)
                 drawUV([
-                    [0.36, 0.72], [0.48, 0.72],
-                    [0.48, 0.86], [0.36, 0.86]
+                    [0.34, 0.72], [0.50, 0.72],
+                    [0.50, 0.86], [0.34, 0.86]
                 ], mainStyle);
 
                 // === Large star at top ===
                 const sx = 0.42, sy = 0.02;
-                const sr = 0.06;
-                const sr2 = 0.025;
+                const sr = 0.07;
+                const sr2 = 0.03;
                 // 4-pointed star as two overlapping diamonds
                 drawUV([
                     [sx, sy - sr], [sx + sr2, sy - sr2],
@@ -398,8 +477,8 @@ const nordicPatterns: PatternSet = {
                     [sx - sr, sy], [sx - sr2, sy - sr2]
                 ], mainStyle);
 
-                // === Ornament diamonds on tiers ===
-                const od = 0.03;
+                // === Ornament diamonds on tiers (larger) ===
+                const od = 0.04;
                 const ornaments: [number, number][] = [
                     [0.24, 0.60], [0.60, 0.60], [0.42, 0.62],
                     [0.30, 0.44], [0.54, 0.44],
@@ -421,20 +500,20 @@ const nordicPatterns: PatternSet = {
                 drawUV([
                     [0.80, 0.30], [0.92, 0.55], [0.68, 0.55]
                 ], mainStyle);
-                // Small trunk
+                // Small trunk (wider)
                 drawUV([
-                    [0.77, 0.72], [0.83, 0.72],
-                    [0.83, 0.82], [0.77, 0.82]
+                    [0.76, 0.72], [0.84, 0.72],
+                    [0.84, 0.82], [0.76, 0.82]
                 ], mainStyle);
-                // Small star
-                const s2d = 0.035;
+                // Small star (larger)
+                const s2d = 0.045;
                 drawUV([
                     [0.80, 0.30 - s2d], [0.80 + s2d, 0.30],
                     [0.80, 0.30 + s2d], [0.80 - s2d, 0.30]
                 ], mainStyle);
 
-                // === Snow dots scattered around trees ===
-                const snowR = 0.018;
+                // === Snow dots scattered around trees (larger) ===
+                const snowR = 0.025;
                 const snowDots: [number, number][] = [
                     [0.08, 0.18], [0.18, 0.10], [0.68, 0.12],
                     [0.90, 0.18], [0.96, 0.38], [0.04, 0.36],
@@ -448,55 +527,55 @@ const nordicPatterns: PatternSet = {
                     ], mainStyle);
                 }
 
-                // === Decorative border band at bottom with diamond motifs ===
+                // === Decorative border band at bottom with diamond motifs (thicker) ===
                 drawUV([
-                    [0.0, 0.88], [1.0, 0.88], [1.0, 1.0], [0.0, 1.0]
+                    [0.0, 0.86], [1.0, 0.86], [1.0, 1.0], [0.0, 1.0]
                 ], mainStyle);
-                // Diamonds inside the border band
-                const bdd = 0.04;
+                // Diamonds inside the border band (larger)
+                const bdd = 0.05;
                 for (let i = 0; i < 5; i++) {
                     const bx = 0.1 + i * 0.2;
-                    const by = 0.94;
+                    const by = 0.93;
                     drawUV([
                         [bx, by - bdd], [bx + bdd, by],
                         [bx, by + bdd], [bx - bdd, by]
                     ], detailStyle);
                 }
 
-                // === Ground line ===
+                // === Filled ground area around trunks ===
                 drawUV([
-                    [0.0, 0.86], [1.0, 0.86], [1.0, 0.88], [0.0, 0.88]
+                    [0.0, 0.82], [1.0, 0.82], [1.0, 0.86], [0.0, 0.86]
                 ], mainStyle);
 
                 break;
             }
 
-            case 4: { // Interlocking diamond chain - COMPLETE REWRITE
+            case 4: { // Interlocking diamond chain
                 const mainStyle = filled ? 'filled' : 'outline';
                 const detailStyle = filled ? 'opaque-outline' : 'filled';
                 const altStyle = filled ? 'opaque-outline' : 'outline';
 
-                // === Zigzag border band TOP ===
+                // === Zigzag border band TOP (thicker) ===
                 drawUV([
-                    [0.0, 0.0], [1.0, 0.0], [1.0, 0.12], [0.0, 0.12]
+                    [0.0, 0.0], [1.0, 0.0], [1.0, 0.14], [0.0, 0.14]
                 ], mainStyle);
                 // Zigzag cutouts in top band
                 for (let i = 0; i < 8; i++) {
                     const zx = i * 0.125;
                     drawUV([
-                        [zx, 0.12], [zx + 0.0625, 0.05], [zx + 0.125, 0.12]
+                        [zx, 0.14], [zx + 0.0625, 0.06], [zx + 0.125, 0.14]
                     ], detailStyle);
                 }
 
-                // === Zigzag border band BOTTOM ===
+                // === Zigzag border band BOTTOM (thicker) ===
                 drawUV([
-                    [0.0, 0.88], [1.0, 0.88], [1.0, 1.0], [0.0, 1.0]
+                    [0.0, 0.86], [1.0, 0.86], [1.0, 1.0], [0.0, 1.0]
                 ], mainStyle);
                 // Zigzag cutouts in bottom band
                 for (let i = 0; i < 8; i++) {
                     const zx = i * 0.125;
                     drawUV([
-                        [zx, 0.88], [zx + 0.0625, 0.95], [zx + 0.125, 0.88]
+                        [zx, 0.86], [zx + 0.0625, 0.94], [zx + 0.125, 0.86]
                     ], detailStyle);
                 }
 
@@ -540,8 +619,24 @@ const nordicPatterns: PatternSet = {
                     ], isFilled ? detailStyle : mainStyle);
                 }
 
-                // === Small dots between diamonds ===
-                const dotR = 0.022;
+                // === Filled triangular sections between diamonds ===
+                // Fill the gaps between adjacent diamonds with solid shapes
+                for (let i = 0; i < 2; i++) {
+                    const lx = centers[i];
+                    const rx = centers[i + 1];
+                    const mid = (lx + rx) / 2;
+                    // Top triangle between diamonds
+                    drawUV([
+                        [lx + dw, cy], [rx - dw, cy], [mid, cy - 0.18]
+                    ], mainStyle);
+                    // Bottom triangle between diamonds
+                    drawUV([
+                        [lx + dw, cy], [rx - dw, cy], [mid, cy + 0.18]
+                    ], mainStyle);
+                }
+
+                // === Small dots between diamonds (larger) ===
+                const dotR = 0.028;
                 const betweenXs = [0.335, 0.665]; // midpoints between diamond centers
                 for (const bx of betweenXs) {
                     // Vertical column of dots between each pair
@@ -549,7 +644,7 @@ const nordicPatterns: PatternSet = {
                         drawUV([
                             [bx, cy + dy - dotR], [bx + dotR, cy + dy],
                             [bx, cy + dy + dotR], [bx - dotR, cy + dy]
-                        ], mainStyle);
+                        ], detailStyle);
                     }
                 }
 
@@ -567,15 +662,15 @@ const nordicPatterns: PatternSet = {
                     ], mainStyle);
                 }
 
-                // === Horizontal connecting bars between diamonds ===
-                const barH = 0.025;
+                // === Horizontal connecting bars between diamonds (thicker) ===
+                const barH = 0.035;
                 drawUV([
                     [0.0, cy - barH], [1.0, cy - barH],
                     [1.0, cy + barH], [0.0, cy + barH]
                 ], mainStyle);
 
-                // === Small diamonds in the zigzag band gaps ===
-                const zbd = 0.02;
+                // === Small diamonds in the zigzag band gaps (larger) ===
+                const zbd = 0.025;
                 for (let i = 0; i < 8; i++) {
                     const zx = 0.0625 + i * 0.125;
                     // Top band
@@ -589,6 +684,14 @@ const nordicPatterns: PatternSet = {
                         [zx, 0.97 + zbd], [zx - zbd, 0.97]
                     ], detailStyle);
                 }
+
+                // === Filled side panels ===
+                drawUV([
+                    [0.0, cy - dh], [centers[0] - dw, cy], [0.0, cy + dh]
+                ], mainStyle);
+                drawUV([
+                    [1.0, cy - dh], [centers[2] + dw, cy], [1.0, cy + dh]
+                ], mainStyle);
 
                 break;
             }

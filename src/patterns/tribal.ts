@@ -57,47 +57,47 @@ const tribalPatterns: PatternSet = {
                     drawUV(dot(0.37, 0.38, 0.025), 'filled');
                     drawUV(dot(0.63, 0.38, 0.025), 'filled');
                 } else {
-                    // Eyes — almond outlines
+                    // Eyes — almond filled
                     drawUV([
                         [0.28, 0.38], [0.33, 0.33], [0.42, 0.34],
                         [0.44, 0.38], [0.42, 0.42], [0.33, 0.43],
-                    ], 'outline');
+                    ], 'filled');
                     drawUV([
                         [0.56, 0.34], [0.67, 0.33], [0.72, 0.38],
                         [0.67, 0.43], [0.58, 0.42], [0.56, 0.38],
-                    ], 'outline');
+                    ], 'filled');
                     // Pupils
-                    drawUV(dot(0.37, 0.38, 0.02), 'outline');
-                    drawUV(dot(0.63, 0.38, 0.02), 'outline');
+                    drawUV(dot(0.37, 0.38, 0.02), 'filled');
+                    drawUV(dot(0.63, 0.38, 0.02), 'filled');
                 }
 
                 // Nose — elongated triangle
                 drawUV([
                     [0.5, 0.42], [0.54, 0.6], [0.5, 0.64], [0.46, 0.6],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
 
                 // Mouth — wide rectangle with teeth marks
                 drawUV([
                     [0.36, 0.7], [0.64, 0.7], [0.64, 0.78], [0.36, 0.78],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
                 if (!filled) {
-                    // Vertical teeth lines
-                    drawUV([[0.42, 0.7], [0.42, 0.78]], 'line');
-                    drawUV([[0.48, 0.7], [0.48, 0.78]], 'line');
-                    drawUV([[0.54, 0.7], [0.54, 0.78]], 'line');
-                    drawUV([[0.60, 0.7], [0.60, 0.78]], 'line');
+                    // Vertical teeth as thin filled bars
+                    drawUV([[0.42 - 0.012, 0.7], [0.42 + 0.012, 0.7], [0.42 + 0.012, 0.78], [0.42 - 0.012, 0.78]], baseStyle);
+                    drawUV([[0.48 - 0.012, 0.7], [0.48 + 0.012, 0.7], [0.48 + 0.012, 0.78], [0.48 - 0.012, 0.78]], baseStyle);
+                    drawUV([[0.54 - 0.012, 0.7], [0.54 + 0.012, 0.7], [0.54 + 0.012, 0.78], [0.54 - 0.012, 0.78]], baseStyle);
+                    drawUV([[0.60 - 0.012, 0.7], [0.60 + 0.012, 0.7], [0.60 + 0.012, 0.78], [0.60 - 0.012, 0.78]], baseStyle);
                 } else {
                     // Teeth as opaque cutouts
                     drawUV([[0.42, 0.71], [0.46, 0.71], [0.46, 0.77], [0.42, 0.77]], 'opaque-outline');
                     drawUV([[0.54, 0.71], [0.58, 0.71], [0.58, 0.77], [0.54, 0.77]], 'opaque-outline');
                 }
 
-                // Scarification marks — horizontal lines on cheeks
+                // Scarification marks — thin filled bars on cheeks
                 if (!filled) {
                     for (let i = 0; i < 3; i++) {
                         const y = 0.5 + i * 0.05;
-                        drawUV([[0.22, y], [0.34, y]], 'line');
-                        drawUV([[0.66, y], [0.78, y]], 'line');
+                        drawUV([[0.22, y - 0.012], [0.34, y - 0.012], [0.34, y + 0.012], [0.22, y + 0.012]], baseStyle);
+                        drawUV([[0.66, y - 0.012], [0.78, y - 0.012], [0.78, y + 0.012], [0.66, y + 0.012]], baseStyle);
                     }
                 } else {
                     for (let i = 0; i < 3; i++) {
@@ -110,7 +110,7 @@ const tribalPatterns: PatternSet = {
                 // Forehead decoration — horizontal band
                 drawUV([
                     [0.28, 0.22], [0.72, 0.22], [0.72, 0.27], [0.28, 0.27],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
                 break;
             }
 
@@ -131,7 +131,7 @@ const tribalPatterns: PatternSet = {
                     [0.8, 0.6], [0.7, 0.74], [0.5, 0.86],
                     [0.3, 0.74], [0.2, 0.6], [0.16, 0.45],
                     [0.2, 0.28], [0.3, 0.16],
-                ], filled ? 'opaque-outline' : 'outline');
+                ], filled ? 'opaque-outline' : 'filled');
 
                 // Second concentric border
                 drawUV([
@@ -140,22 +140,38 @@ const tribalPatterns: PatternSet = {
                     [0.72, 0.56], [0.64, 0.67], [0.5, 0.76],
                     [0.36, 0.67], [0.28, 0.56], [0.25, 0.45],
                     [0.28, 0.32], [0.36, 0.22],
-                ], filled ? 'filled' : 'outline');
+                ], filled ? 'filled' : 'filled');
 
-                // Central vertical line (cross)
-                drawUV([[0.5, 0.2], [0.5, 0.74]], filled ? 'opaque-outline' : 'line');
+                // Central vertical bar (cross)
+                if (filled) {
+                    drawUV([[0.5, 0.2], [0.5, 0.74]], 'opaque-outline');
+                } else {
+                    drawUV([[0.5 - 0.012, 0.2], [0.5 + 0.012, 0.2], [0.5 + 0.012, 0.74], [0.5 - 0.012, 0.74]], baseStyle);
+                }
 
-                // Central horizontal line (cross)
-                drawUV([[0.27, 0.45], [0.73, 0.45]], filled ? 'opaque-outline' : 'line');
+                // Central horizontal bar (cross)
+                if (filled) {
+                    drawUV([[0.27, 0.45], [0.73, 0.45]], 'opaque-outline');
+                } else {
+                    drawUV([[0.27, 0.45 - 0.012], [0.73, 0.45 - 0.012], [0.73, 0.45 + 0.012], [0.27, 0.45 + 0.012]], baseStyle);
+                }
 
                 if (filled) {
                     // Filled triangles in alternating quadrants (top-right and bottom-left)
                     drawUV([[0.5, 0.2], [0.7, 0.32], [0.5, 0.45]], 'opaque-outline');
                     drawUV([[0.5, 0.45], [0.3, 0.58], [0.5, 0.74]], 'opaque-outline');
                 } else {
-                    // X dividers in outline mode
-                    drawUV([[0.35, 0.25], [0.65, 0.65]], 'line');
-                    drawUV([[0.65, 0.25], [0.35, 0.65]], 'line');
+                    // X dividers as thin filled bars
+                    // Diagonal from top-left to bottom-right
+                    drawUV([
+                        [0.35 - 0.012, 0.25], [0.35 + 0.012, 0.25],
+                        [0.65 + 0.012, 0.65], [0.65 - 0.012, 0.65],
+                    ], baseStyle);
+                    // Diagonal from top-right to bottom-left
+                    drawUV([
+                        [0.65 - 0.012, 0.25], [0.65 + 0.012, 0.25],
+                        [0.35 + 0.012, 0.65], [0.35 - 0.012, 0.65],
+                    ], baseStyle);
                 }
 
                 // Dot patterns along the outer border
@@ -167,7 +183,7 @@ const tribalPatterns: PatternSet = {
                     [0.12, 0.38], [0.18, 0.22], [0.32, 0.12],
                 ];
                 for (const [dx, dy] of shieldDots) {
-                    drawUV(dot(dx, dy, 0.018), filled ? baseStyle : 'outline');
+                    drawUV(dot(dx, dy, 0.018), filled ? baseStyle : 'filled');
                 }
                 break;
             }
@@ -235,18 +251,18 @@ const tribalPatterns: PatternSet = {
                         }
                     }
                 } else {
-                    // In outline mode, draw crossing lines
+                    // In outline mode, draw crossing squares as filled
                     for (let k = 0; k < 4; k++) {
                         const crossU = (k + 0.5) * 0.25;
-                        drawUV(sq(crossU, 0.5, 0.05), 'outline');
+                        drawUV(sq(crossU, 0.5, 0.05), 'filled');
                     }
                 }
 
-                // Decorative dots between borders and bands
+                // Decorative dots between borders and bands — use 'filled' not 'outline'
                 for (let i = 0; i < 6; i++) {
                     const u = 0.1 + i * 0.16;
-                    drawUV(dot(u, 0.88, 0.015), filled ? baseStyle : 'outline');
-                    drawUV(dot(u, 0.12, 0.015), filled ? baseStyle : 'outline');
+                    drawUV(dot(u, 0.88, 0.015), filled ? baseStyle : 'filled');
+                    drawUV(dot(u, 0.12, 0.015), filled ? baseStyle : 'filled');
                 }
                 break;
             }
@@ -258,15 +274,15 @@ const tribalPatterns: PatternSet = {
                     [0.15, 0.68], [0.85, 0.68], [0.85, 0.97], [0.15, 0.97],
                 ], baseStyle);
                 // Circular eyes (approximated as octagons)
-                drawUV(oval(0.35, 0.82, 0.07, 0.05, 8), filled ? 'opaque-outline' : 'outline');
-                drawUV(oval(0.65, 0.82, 0.07, 0.05, 8), filled ? 'opaque-outline' : 'outline');
+                drawUV(oval(0.35, 0.82, 0.07, 0.05, 8), filled ? 'opaque-outline' : 'filled');
+                drawUV(oval(0.65, 0.82, 0.07, 0.05, 8), filled ? 'opaque-outline' : 'filled');
                 // Pupils
                 drawUV(dot(0.35, 0.82, 0.02), baseStyle);
                 drawUV(dot(0.65, 0.82, 0.02), baseStyle);
                 // Nose
-                drawUV([[0.5, 0.78], [0.53, 0.74], [0.47, 0.74]], filled ? baseStyle : 'outline');
+                drawUV([[0.5, 0.78], [0.53, 0.74], [0.47, 0.74]], filled ? baseStyle : 'filled');
                 // Mouth
-                drawUV([[0.38, 0.9], [0.62, 0.9], [0.62, 0.94], [0.38, 0.94]], filled ? baseStyle : 'outline');
+                drawUV([[0.38, 0.9], [0.62, 0.9], [0.62, 0.94], [0.38, 0.94]], filled ? baseStyle : 'filled');
 
                 // === Zigzag separator (y: 0.63–0.68) ===
                 drawUV([
@@ -281,19 +297,19 @@ const tribalPatterns: PatternSet = {
                     [0.15, 0.35], [0.85, 0.35], [0.85, 0.63], [0.15, 0.63],
                 ], baseStyle);
                 // Diamond eyes
-                drawUV(dot(0.35, 0.49, 0.06), filled ? 'opaque-outline' : 'outline');
-                drawUV(dot(0.65, 0.49, 0.06), filled ? 'opaque-outline' : 'outline');
+                drawUV(dot(0.35, 0.49, 0.06), filled ? 'opaque-outline' : 'filled');
+                drawUV(dot(0.65, 0.49, 0.06), filled ? 'opaque-outline' : 'filled');
                 // Inner pupils
                 drawUV(dot(0.35, 0.49, 0.02), baseStyle);
                 drawUV(dot(0.65, 0.49, 0.02), baseStyle);
                 // Wide nose
-                drawUV([[0.46, 0.46], [0.54, 0.46], [0.52, 0.42], [0.48, 0.42]], filled ? baseStyle : 'outline');
+                drawUV([[0.46, 0.46], [0.54, 0.46], [0.52, 0.42], [0.48, 0.42]], filled ? baseStyle : 'filled');
                 // Grimacing mouth
                 drawUV([
                     [0.32, 0.56], [0.40, 0.54], [0.50, 0.56],
                     [0.60, 0.54], [0.68, 0.56],
                     [0.60, 0.59], [0.50, 0.6], [0.40, 0.59],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
 
                 // === Zigzag separator (y: 0.30–0.35) ===
                 drawUV([
@@ -310,25 +326,25 @@ const tribalPatterns: PatternSet = {
                 // Slit eyes — narrow horizontal shapes
                 drawUV([
                     [0.24, 0.18], [0.35, 0.16], [0.46, 0.18], [0.35, 0.20],
-                ], filled ? 'opaque-outline' : 'outline');
+                ], filled ? 'opaque-outline' : 'filled');
                 drawUV([
                     [0.54, 0.18], [0.65, 0.16], [0.76, 0.18], [0.65, 0.20],
-                ], filled ? 'opaque-outline' : 'outline');
+                ], filled ? 'opaque-outline' : 'filled');
                 // Nose
-                drawUV([[0.48, 0.15], [0.52, 0.15], [0.50, 0.10]], filled ? baseStyle : 'outline');
+                drawUV([[0.48, 0.15], [0.52, 0.15], [0.50, 0.10]], filled ? baseStyle : 'filled');
                 // Mouth — wide thin slit
                 drawUV([
                     [0.3, 0.24], [0.7, 0.24], [0.7, 0.27], [0.3, 0.27],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
 
                 if (!filled) {
-                    // Extra detail: vertical lines on side of each face (ears/decorations)
-                    drawUV([[0.17, 0.7], [0.17, 0.95]], 'line');
-                    drawUV([[0.83, 0.7], [0.83, 0.95]], 'line');
-                    drawUV([[0.17, 0.37], [0.17, 0.61]], 'line');
-                    drawUV([[0.83, 0.37], [0.83, 0.61]], 'line');
-                    drawUV([[0.17, 0.05], [0.17, 0.28]], 'line');
-                    drawUV([[0.83, 0.05], [0.83, 0.28]], 'line');
+                    // Extra detail: vertical filled bars on side of each face (ears/decorations)
+                    drawUV([[0.17 - 0.015, 0.7], [0.17 + 0.015, 0.7], [0.17 + 0.015, 0.95], [0.17 - 0.015, 0.95]], baseStyle);
+                    drawUV([[0.83 - 0.015, 0.7], [0.83 + 0.015, 0.7], [0.83 + 0.015, 0.95], [0.83 - 0.015, 0.95]], baseStyle);
+                    drawUV([[0.17 - 0.015, 0.37], [0.17 + 0.015, 0.37], [0.17 + 0.015, 0.61], [0.17 - 0.015, 0.61]], baseStyle);
+                    drawUV([[0.83 - 0.015, 0.37], [0.83 + 0.015, 0.37], [0.83 + 0.015, 0.61], [0.83 - 0.015, 0.61]], baseStyle);
+                    drawUV([[0.17 - 0.015, 0.05], [0.17 + 0.015, 0.05], [0.17 + 0.015, 0.28], [0.17 - 0.015, 0.28]], baseStyle);
+                    drawUV([[0.83 - 0.015, 0.05], [0.83 + 0.015, 0.05], [0.83 + 0.015, 0.28], [0.83 - 0.015, 0.28]], baseStyle);
                 }
                 break;
             }
@@ -368,8 +384,12 @@ const tribalPatterns: PatternSet = {
                     [0.82, 0.82], [0.8, 0.80],
                     [0.67, 0.66], [0.64, 0.65],
                 ], baseStyle);
-                // Spear in right hand
-                drawUV([[0.8, 0.84], [0.8, 0.98]], filled ? baseStyle : 'line');
+                // Spear in right hand — thin filled bar instead of line
+                if (filled) {
+                    drawUV([[0.8, 0.84], [0.8, 0.98]], baseStyle);
+                } else {
+                    drawUV([[0.8 - 0.012, 0.84], [0.8 + 0.012, 0.84], [0.8 + 0.012, 0.98], [0.8 - 0.012, 0.98]], baseStyle);
+                }
                 drawUV([[0.77, 0.95], [0.8, 0.98], [0.83, 0.95]], baseStyle); // spear tip
 
                 // Left arm — extended down holding shield
@@ -386,7 +406,7 @@ const tribalPatterns: PatternSet = {
                     [0.2, 0.6], [0.1, 0.56],
                 ], baseStyle);
                 // Shield inner detail
-                drawUV(dot(0.18, 0.52, 0.025), filled ? 'opaque-outline' : 'outline');
+                drawUV(dot(0.18, 0.52, 0.025), filled ? 'opaque-outline' : 'filled');
 
                 // Right leg — forward (running)
                 drawUV([
@@ -411,24 +431,26 @@ const tribalPatterns: PatternSet = {
                 // Wrist bands
                 drawUV([
                     [0.77, 0.79], [0.83, 0.83], [0.82, 0.85], [0.76, 0.81],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
                 drawUV([
                     [0.18, 0.53], [0.22, 0.55], [0.21, 0.57], [0.17, 0.55],
-                ], filled ? baseStyle : 'outline');
+                ], filled ? baseStyle : 'filled');
 
                 // Ankle bands
-                drawUV(sq(0.71, 0.13, 0.02), filled ? baseStyle : 'outline');
-                drawUV(sq(0.33, 0.11, 0.02), filled ? baseStyle : 'outline');
+                drawUV(sq(0.71, 0.13, 0.02), filled ? baseStyle : 'filled');
+                drawUV(sq(0.33, 0.11, 0.02), filled ? baseStyle : 'filled');
 
                 if (!filled) {
-                    // Torso decoration — horizontal stripes
-                    drawUV([[0.42, 0.55], [0.58, 0.55]], 'line');
-                    drawUV([[0.43, 0.5], [0.57, 0.5]], 'line');
-                    drawUV([[0.39, 0.6], [0.61, 0.6]], 'line');
-                    // Face features
-                    drawUV([[0.48, 0.83], [0.48, 0.81]], 'line');
-                    drawUV([[0.52, 0.83], [0.52, 0.81]], 'line');
-                    drawUV([[0.48, 0.8], [0.52, 0.8]], 'line');
+                    // Torso decoration — horizontal filled bars instead of lines
+                    drawUV([[0.42, 0.55 - 0.012], [0.58, 0.55 - 0.012], [0.58, 0.55 + 0.012], [0.42, 0.55 + 0.012]], baseStyle);
+                    drawUV([[0.43, 0.5 - 0.012], [0.57, 0.5 - 0.012], [0.57, 0.5 + 0.012], [0.43, 0.5 + 0.012]], baseStyle);
+                    drawUV([[0.39, 0.6 - 0.012], [0.61, 0.6 - 0.012], [0.61, 0.6 + 0.012], [0.39, 0.6 + 0.012]], baseStyle);
+                    // Face features — filled shapes instead of lines
+                    // Eyes as small filled dots
+                    drawUV(dot(0.48, 0.82, 0.012), baseStyle);
+                    drawUV(dot(0.52, 0.82, 0.012), baseStyle);
+                    // Mouth as small filled bar
+                    drawUV([[0.48, 0.8 - 0.012], [0.52, 0.8 - 0.012], [0.52, 0.8 + 0.012], [0.48, 0.8 + 0.012]], baseStyle);
                 }
                 break;
             }
