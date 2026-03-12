@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns } from './patterns';
-import type { PathStyle } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns } from './patterns';
+import type { PathStyle, PatternSet } from './patterns';
+
+const ALL_PATTERN_SETS: PatternSet[] = [
+    aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
+    lotusPatterns, greekkeyPatterns, tribalPatterns
+];
 
 // --- Seeded RNG ---
 function mulberry32(a: number) {
@@ -81,6 +86,8 @@ export default function App() {
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
+    const [patternSetIndex, setPatternSetIndex] = useState(0);
+    const patternSetRef = useRef<PatternSet>(ALL_PATTERN_SETS[0]);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -175,7 +182,7 @@ export default function App() {
             return { x: r * Math.cos(a), y: r * Math.sin(a) };
         };
 
-        const patternSet = aztecPatterns;
+        const patternSet = patternSetRef.current;
 
         // Helper: Draw a rough path
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
@@ -672,6 +679,31 @@ export default function App() {
                                 onChange={handleLayerChange}
                                 className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                             />
+                        </div>
+
+                        <div className="mb-6 pointer-events-auto touch-auto">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                Pattern Set: {ALL_PATTERN_SETS[patternSetIndex].name}
+                            </label>
+                            <div className="flex flex-wrap gap-1">
+                                {ALL_PATTERN_SETS.map((ps, i) => (
+                                    <button
+                                        key={ps.name}
+                                        onClick={() => {
+                                            setPatternSetIndex(i);
+                                            patternSetRef.current = ALL_PATTERN_SETS[i];
+                                            isDirtyRef.current = true;
+                                        }}
+                                        className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
+                                            i === patternSetIndex
+                                                ? 'bg-black text-white'
+                                                : 'bg-black/10 text-black/60 hover:bg-black/20'
+                                        }`}
+                                    >
+                                        {ps.name}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {isAutoAnimating && (
