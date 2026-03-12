@@ -161,7 +161,7 @@ const DEFAULT_CONFIG: AppConfig = {
     symmetry: 12,
     layers: 12,
     spread: 70,
-    roughness: 2.0,
+    roughness: 0,
     twist: 0,
     seed: 42,
     spinSpeed: 1,
@@ -201,6 +201,7 @@ export default function App() {
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
     const wavePhaseRef = useRef(0);
+    const roughnessPhaseRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
 
     // Interaction refs
@@ -237,6 +238,7 @@ export default function App() {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
             configRef.current.zoom += dt * configRef.current.zoomSpeed;
+            roughnessPhaseRef.current += dt * 0.8;
             isDirtyRef.current = true;
         }
 
@@ -295,6 +297,12 @@ export default function App() {
         const theme = themeRef.current;
         let layerColor = theme.colors[0]; // updated per-layer
 
+        // Roughness modulation: sine wave adds animated roughness on top of the base setting
+        const roughnessModulation = autoAnimateRef.current
+            ? Math.abs(Math.sin(roughnessPhaseRef.current)) * 3.0
+            : 0;
+        const effectiveRoughness = config.roughness + roughnessModulation;
+
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
             const passes = style === 'filled' ? 1 : 2;
 
@@ -302,8 +310,8 @@ export default function App() {
                 ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
                 ctx.beginPath();
                 points.forEach((p, i) => {
-                    const nx = p.x + (rng() - 0.5) * config.roughness;
-                    const ny = p.y + (rng() - 0.5) * config.roughness;
+                    const nx = p.x + (rng() - 0.5) * effectiveRoughness;
+                    const ny = p.y + (rng() - 0.5) * effectiveRoughness;
                     if (i === 0) ctx.moveTo(nx, ny);
                     else ctx.lineTo(nx, ny);
                 });
@@ -317,8 +325,8 @@ export default function App() {
             for (let pass = 0; pass < passes; pass++) {
                 ctx.beginPath();
                 points.forEach((p, i) => {
-                    const nx = p.x + (rng() - 0.5) * config.roughness * 1.5;
-                    const ny = p.y + (rng() - 0.5) * config.roughness * 1.5;
+                    const nx = p.x + (rng() - 0.5) * effectiveRoughness * 1.5;
+                    const ny = p.y + (rng() - 0.5) * effectiveRoughness * 1.5;
                     if (i === 0) ctx.moveTo(nx, ny);
                     else ctx.lineTo(nx, ny);
                 });
