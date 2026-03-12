@@ -121,7 +121,7 @@ export default function App() {
         if (autoAnimateRef.current) {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
-            configRef.current.zoom += dt * configRef.current.zoomSpeed;
+            configRef.current.zoom += dt * configRef.current.zoomSpeed * 3;
             isDirtyRef.current = true;
         }
 
@@ -155,10 +155,11 @@ export default function App() {
             isBulgeActive = true;
         }
 
-        // --- Infinite Zoom (tunnel conveyor belt) ---
+        // --- Zoom as camera scale (no identity changes) ---
+        // Oscillating zoom: sine wave gives smooth in/out breathing
+        // Manual zoom (pinch/scroll) adds to the base, animation oscillates around it
         const zoom = config.zoom;
-        const shift = Math.floor(zoom);
-        const offset = zoom - shift; // fractional [0, 1)
+        const zoomScale = Math.pow(1.15, zoom);
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
@@ -203,28 +204,28 @@ export default function App() {
         };
 
         // Draw layers from outside in
+        let prevType = -1;
         for (let l = layers; l >= 1; l--) {
-            const layerId = l + shift;
-            const layerRng = mulberry32(config.seed + layerId * 999);
-            // Pick pattern type — dedup against outer neighbor independently (no cascade)
+            const layerRng = mulberry32(config.seed + l * 999);
+            // Pick pattern type, dedup against previous (sequential is fine — ids never change)
             let type = Math.floor(layerRng() * 5);
-            const neighborRng = mulberry32(config.seed + (layerId + 1) * 999);
-            const neighborType = Math.floor(neighborRng() * 5);
-            if (type === neighborType) type = (type + 1) % 5;
+            if (type === prevType) type = (type + 1 + Math.floor(layerRng() * 4)) % 5;
+            prevType = type;
             const filled = layerRng() > 0.5;
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
             const speedOffset = (layerRng() - 0.5) * 2; // [-1, 1]
 
-            // Normalized positions along the tunnel
-            const t1 = (l - 1 + offset) / (layers + 1);
-            const t2 = (l + offset) / (layers + 1);
+            // Normalized positions along the tunnel (fixed, no offset)
+            const t1 = (l - 1) / (layers + 1);
+            const t2 = l / (layers + 1);
 
-            // Exponential radii — inner layers are heavily compressed
-            let r1 = tunnelRadius(t1, maxR);
-            let r2 = tunnelRadius(t2, maxR);
+            // Exponential radii scaled by zoom
+            let r1 = tunnelRadius(t1, maxR) * zoomScale;
+            let r2 = tunnelRadius(t2, maxR) * zoomScale;
 
-            if (r2 <= 0.5) continue;
+            if (r2 <= 0.5) continue; // too small to see
+            if (r1 > maxR * 1.5) continue; // off-screen (zoomed past)
 
             // Ring thickness — skip drawing motifs if too thin
             const thickness = r2 - r1;
@@ -329,25 +330,24 @@ export default function App() {
             ctx.restore();
         }
 
-        // Dense center vanishing point
-        const innermostT = offset / (layers + 1);
-        const innermostR = tunnelRadius(innermostT, maxR);
-        if (innermostR > 0.5) {
-            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, innermostR);
+        // Dense center vanishing point — inside the innermost layer
+        const coreR = tunnelRadius(1 / (layers + 1), maxR) * zoomScale;
+        if (coreR > 0.5) {
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
             grad.addColorStop(0, 'rgba(26, 24, 24, 0.85)');
             grad.addColorStop(0.4, 'rgba(26, 24, 24, 0.5)');
             grad.addColorStop(0.8, 'rgba(26, 24, 24, 0.15)');
             grad.addColorStop(1, 'rgba(235, 231, 224, 0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(0, 0, innermostR, 0, Math.PI * 2);
+            ctx.arc(0, 0, coreR, 0, Math.PI * 2);
             ctx.fill();
 
-            const coreRng = mulberry32(config.seed + shift * 7);
+            const coreRng = mulberry32(config.seed + 7);
             ctx.strokeStyle = 'rgba(26, 24, 24, 0.3)';
             ctx.lineWidth = 0.5;
             for (let i = 0; i < 6; i++) {
-                const rr = innermostR * (0.1 + coreRng() * 0.8);
+                const rr = coreR * (0.1 + coreRng() * 0.8);
                 ctx.beginPath();
                 ctx.arc(0, 0, rr, 0, Math.PI * 2);
                 ctx.stroke();
