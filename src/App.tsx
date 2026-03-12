@@ -532,7 +532,7 @@ export default function App() {
     };
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-none">
+        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-manipulation">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
 
             <button 
@@ -558,7 +558,7 @@ export default function App() {
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 50, opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
                     >
                         <button 
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
