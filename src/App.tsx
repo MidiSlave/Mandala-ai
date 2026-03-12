@@ -22,7 +22,6 @@ interface AppConfig {
     seed: number;
     spinSpeed: number;
     waveSpeed: number;
-    zoom: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -33,8 +32,7 @@ const DEFAULT_CONFIG: AppConfig = {
     twist: 0,
     seed: 42,
     spinSpeed: 1,
-    waveSpeed: 1,
-    zoom: 0
+    waveSpeed: 1
 };
 
 export default function App() {
@@ -44,21 +42,21 @@ export default function App() {
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
-    
+
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
     const wavePhaseRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
-    
+
     // Interaction refs
     const touchesRef = useRef<Map<number, {x: number, y: number}>>(new Map());
     const lastTapRef = useRef<number>(0);
     const initialPinchDistRef = useRef<number | null>(null);
     const initialPinchAngleRef = useRef<number | null>(null);
     const initialConfigRef = useRef<AppConfig | null>(null);
-    
+
     // Pointer reactivity
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
@@ -117,33 +115,6 @@ export default function App() {
             isBulgeActive = true;
         }
 
-        const zoom = config.zoom;
-        const shift = Math.floor(zoom);
-        let offset = zoom - shift; // [0, 1)
-
-        const startAbs = -1 - shift;
-        const count = layers + 2; // l from -1 to layers
-
-        // Calculate types
-        const getStep = (absL: number) => Math.floor(mulberry32(config.seed + absL * 999)() * 4) + 1;
-        let currentType = Math.floor(mulberry32(config.seed)() * 5);
-        if (startAbs > 0) {
-            for (let i = 1; i <= startAbs; i++) currentType = (currentType + getStep(i)) % 5;
-        } else if (startAbs < 0) {
-            for (let i = 0; i > startAbs; i--) currentType = (currentType - getStep(i) + 5) % 5;
-        }
-
-        const layerTypes: number[] = [];
-        const layerFilled: boolean[] = [];
-        for (let i = 0; i < count; i++) {
-            const absL = startAbs + i;
-            if (i > 0) {
-                currentType = (currentType + getStep(absL)) % 5;
-            }
-            layerTypes.push(currentType);
-            layerFilled.push(mulberry32(config.seed + absL * 999 + 1)() > 0.5);
-        }
-
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
             const r = r1 + v * (r2 - r1);
@@ -155,8 +126,8 @@ export default function App() {
 
         // Helper: Draw a rough path
         const drawRoughPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number) => {
-            const passes = style === 'filled' ? 1 : 2; 
-            
+            const passes = style === 'filled' ? 1 : 2;
+
             if (style === 'filled' || style === 'opaque-outline') {
                 ctx.fillStyle = style === 'filled' ? '#1A1818' : '#EBE7E0';
                 ctx.beginPath();
@@ -172,7 +143,7 @@ export default function App() {
 
             ctx.strokeStyle = style === 'filled' ? 'rgba(26, 24, 24, 0.9)' : 'rgba(26, 24, 24, 0.6)';
             ctx.lineWidth = 1.5;
-            
+
             for (let pass = 0; pass < passes; pass++) {
                 ctx.beginPath();
                 points.forEach((p, i) => {
@@ -187,18 +158,15 @@ export default function App() {
         };
 
         // Draw Layers from outside in
-        for (let l = layers; l >= -1; l--) {
-            const absL = l - shift;
-            const type = layerTypes[l + 1];
-            const filled = layerFilled[l + 1];
-            const layerRng = mulberry32(config.seed + absL * 999);
-            
-            // Base radii
-            let r1 = Math.max(0, (l + offset) * config.spread);
-            let r2 = Math.max(0, (l + 1 + offset) * config.spread);
+        for (let l = layers; l >= 1; l--) {
+            const layerRng = mulberry32(config.seed + l * 999);
+            const type = Math.floor(layerRng() * 5);
+            const filled = layerRng() > 0.5;
 
-            if (r2 <= 0) continue;
-            
+            // Base radii
+            let r1 = (l - 1) * config.spread;
+            let r2 = l * config.spread;
+
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
             const distToLayer = Math.abs(activePointerDist - midR);
@@ -207,7 +175,7 @@ export default function App() {
                 bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
             }
             r2 += bulge;
-            if (r1 > 0) r1 += bulge * 0.5;
+            if (l > 1) r1 += bulge * 0.5;
 
             // Mask interior to clip the outer layer's inward bleed
             ctx.fillStyle = '#EBE7E0';
@@ -216,7 +184,7 @@ export default function App() {
             ctx.fill();
 
             // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
+            const layerTwist = config.twist * (1 / l);
 
             // Draw a separator ring between layers
             ctx.save();
@@ -232,7 +200,7 @@ export default function App() {
             for (let i = 0; i < sym; i++) {
                 ctx.save();
                 ctx.rotate(i * angleStep);
-                
+
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
                     const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
                     drawRoughPath(pts, style, layerRng);
@@ -242,12 +210,12 @@ export default function App() {
                 switch (type) {
                     case 0: // Stepped Pyramid (Chakana half)
                         drawUV([
-                            [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25], 
-                            [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75], 
+                            [0, 0], [0.2, 0], [0.2, 0.25], [0.4, 0.25],
+                            [0.4, 0.5], [0.6, 0.5], [0.6, 0.75], [0.8, 0.75],
                             [0.8, 1], [1, 1], [1, 0]
                         ], baseStyle);
                         break;
-                    
+
                     case 1: // Mayan Glyph Block (Square with inner details)
                         drawUV([[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]], baseStyle);
                         if (!filled) {
@@ -269,7 +237,7 @@ export default function App() {
                     case 3: // Aztec Fret (Meander)
                         if (filled) {
                             drawUV([
-                                [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8], 
+                                [0, 0], [0.8, 0], [0.8, 0.8], [0.2, 0.8],
                                 [0.2, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6],
                                 [0.4, 0.2], [1.0, 0.2], [1.0, 1.0], [0, 1.0]
                             ], 'filled');
@@ -289,6 +257,37 @@ export default function App() {
                 ctx.restore();
             }
         }
+
+        // Draw Center Core (Sun motif)
+        const coreRng = mulberry32(config.seed);
+        const coreR = config.spread * 0.4;
+
+        // Mask interior for core
+        ctx.fillStyle = '#EBE7E0';
+        ctx.beginPath();
+        ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+        ctx.fill();
+
+        const coreRingPts = [];
+        for(let a=0; a<=Math.PI*2; a+=0.1) {
+            coreRingPts.push({ x: coreR * Math.cos(a), y: coreR * Math.sin(a) });
+        }
+        drawRoughPath(coreRingPts, 'outline', coreRng);
+
+        const corePts = [];
+        for(let a=0; a<=Math.PI*2; a+=0.2) {
+            corePts.push({ x: coreR * 0.8 * Math.cos(a), y: coreR * 0.8 * Math.sin(a) });
+        }
+        drawRoughPath(corePts, 'filled', coreRng);
+
+        // Inner core eye
+        const eyePts = [];
+        for(let a=0; a<=Math.PI*2; a+=0.5) {
+            eyePts.push({ x: coreR * 0.3 * Math.cos(a), y: coreR * 0.3 * Math.sin(a) });
+        }
+        drawRoughPath(eyePts, 'opaque-outline', coreRng);
+
+        ctx.restore();
 
         // Add subtle grain overlay
         ctx.fillStyle = 'rgba(0,0,0,0.03)';
@@ -340,14 +339,14 @@ export default function App() {
         const onTouchStart = (e: TouchEvent) => {
             e.preventDefault();
             const now = Date.now();
-            
+
             if (e.touches.length === 1) {
                 if (now - lastTapRef.current < 300) {
                     configRef.current.seed = Math.random() * 10000;
                     isDirtyRef.current = true;
                 }
                 lastTapRef.current = now;
-                
+
                 pointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, active: true };
                 easedPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             }
@@ -365,7 +364,7 @@ export default function App() {
                 initialPinchDistRef.current = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
                 initialPinchAngleRef.current = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
                 initialConfigRef.current = { ...configRef.current };
-                pointerRef.current.active = false; // Disable single-pointer bulge during pinch
+                pointerRef.current.active = false;
             } else if (e.touches.length === 1) {
                 initialConfigRef.current = { ...configRef.current };
             }
@@ -373,7 +372,7 @@ export default function App() {
 
         const onTouchMove = (e: TouchEvent) => {
             e.preventDefault();
-            
+
             if (e.touches.length === 1) {
                 pointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, active: true };
             }
@@ -381,19 +380,17 @@ export default function App() {
             if (!initialConfigRef.current) return;
 
             if (e.touches.length === 1) {
-                // 1 Finger Pan -> Twist (X) and Symmetry (Y)
                 const touch = e.touches[0];
                 const startTouch = touchesRef.current.get(touch.identifier);
                 if (startTouch) {
                     const dx = touch.clientX - startTouch.x;
                     const dy = touch.clientY - startTouch.y;
-                    
+
                     configRef.current.twist = initialConfigRef.current.twist + dx * 0.01;
                     configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - dy * 0.05));
                     isDirtyRef.current = true;
                 }
             } else if (e.touches.length === 2) {
-                // 2 Fingers -> Pinch (Spread) and Rotate (Roughness)
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 const currentDist = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
@@ -401,12 +398,12 @@ export default function App() {
 
                 if (initialPinchDistRef.current && initialPinchAngleRef.current) {
                     const scale = currentDist / initialPinchDistRef.current;
-                    configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale);
+                    configRef.current.spread = Math.max(20, Math.min(200, initialConfigRef.current.spread * scale));
 
                     let angleDiff = currentAngle - initialPinchAngleRef.current;
                     if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                     if (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                    
+
                     configRef.current.roughness = Math.max(0, Math.min(10, initialConfigRef.current.roughness + angleDiff * 5));
                     isDirtyRef.current = true;
                 }
@@ -428,7 +425,7 @@ export default function App() {
             if (e.touches.length === 0) {
                 initialConfigRef.current = null;
                 pointerRef.current.active = false;
-                isDirtyRef.current = true; 
+                isDirtyRef.current = true;
             }
         };
 
@@ -443,7 +440,7 @@ export default function App() {
         };
         const onMouseMove = (e: MouseEvent) => {
             pointerRef.current = { x: e.clientX, y: e.clientY, active: true };
-            
+
             if (!isMouseDown || !initialConfigRef.current) return;
             const startTouch = touchesRef.current.get(0);
             if (startTouch) {
@@ -462,7 +459,7 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            configRef.current.zoom -= e.deltaY * 0.002;
+            configRef.current.spread = Math.max(20, Math.min(200, configRef.current.spread - e.deltaY * 0.1));
             isDirtyRef.current = true;
         };
 
@@ -470,7 +467,7 @@ export default function App() {
         canvas.addEventListener('touchmove', onTouchMove, { passive: false });
         canvas.addEventListener('touchend', onTouchEnd, { passive: false });
         canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
-        
+
         canvas.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
@@ -482,7 +479,7 @@ export default function App() {
             canvas.removeEventListener('touchmove', onTouchMove);
             canvas.removeEventListener('touchend', onTouchEnd);
             canvas.removeEventListener('touchcancel', onTouchEnd);
-            
+
             canvas.removeEventListener('mousedown', onMouseDown);
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
@@ -502,7 +499,6 @@ export default function App() {
 
     const handleRandomize = () => {
         configRef.current.seed = Math.random() * 10000;
-        // Keep the user's selected layer count instead of randomizing it
         isDirtyRef.current = true;
     };
 
@@ -535,7 +531,7 @@ export default function App() {
         <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
 
-            <button 
+            <button
                 onPointerDown={(e) => { e.stopPropagation(); setUiVisible(v => !v); }}
                 className="absolute top-6 left-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
                 title="Toggle Controls"
@@ -543,7 +539,7 @@ export default function App() {
                 {uiVisible ? <X size={24} /> : <Settings2 size={24} />}
             </button>
 
-            <button 
+            <button
                 onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
                 className="absolute top-6 right-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
                 title="Save Image"
@@ -553,14 +549,14 @@ export default function App() {
 
             <AnimatePresence>
                 {uiVisible && (
-                    <motion.div 
+                    <motion.div
                         initial={{ y: 50, opacity: 0, scale: 0.95 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 50, opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
                     >
-                        <button 
+                        <button
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
                             className="absolute top-4 right-4 p-2 text-black/40 hover:text-black transition-colors pointer-events-auto touch-auto"
                         >
@@ -568,7 +564,7 @@ export default function App() {
                         </button>
 
                         <div className="text-center mb-6">
-                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mesoamerican Mandala</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
                             <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
                         </div>
 
@@ -580,8 +576,8 @@ export default function App() {
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Maximize className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch / Scroll</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch 2 Fingers</span>
+                                <span className="text-[10px] text-black/50 text-center mt-1">Spread / Scale</span>
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <RotateCw className="mb-2 text-black/70" size={24} />
@@ -594,7 +590,7 @@ export default function App() {
                                 <span className="text-[10px] text-black/50 text-center mt-1">Randomize Pattern</span>
                             </div>
                         </div>
-                        
+
                         <div className="text-center mb-4">
                             <p className="text-[10px] text-black/60 uppercase tracking-widest font-bold">Hover / Touch to expand layers</p>
                         </div>
@@ -606,11 +602,11 @@ export default function App() {
                                     Layers: {layerCount}
                                 </label>
                             </div>
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="30" 
-                                value={layerCount} 
+                            <input
+                                type="range"
+                                min="1"
+                                max="30"
+                                value={layerCount}
                                 onChange={handleLayerChange}
                                 className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                             />
@@ -622,8 +618,8 @@ export default function App() {
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
                                         Spin Speed
                                     </label>
-                                    <input 
-                                        type="range" min="-3" max="3" step="0.1" 
+                                    <input
+                                        type="range" min="-3" max="3" step="0.1"
                                         value={spinSpeed} onChange={handleSpinSpeedChange}
                                         className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                                     />
@@ -632,8 +628,8 @@ export default function App() {
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
                                         Wave Speed
                                     </label>
-                                    <input 
-                                        type="range" min="0" max="3" step="0.1" 
+                                    <input
+                                        type="range" min="0" max="3" step="0.1"
                                         value={waveSpeed} onChange={handleWaveSpeedChange}
                                         className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
                                     />
@@ -642,14 +638,14 @@ export default function App() {
                         )}
 
                         <div className="pointer-events-auto flex justify-center gap-3">
-                            <button 
+                            <button
                                 onPointerDown={(e) => { e.stopPropagation(); toggleAutoAnimate(); }}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
                             >
                                 {isAutoAnimating ? <Pause size={18} /> : <Play size={18} />}
                                 {isAutoAnimating ? 'Stop' : 'Animate'}
                             </button>
-                            <button 
+                            <button
                                 onPointerDown={(e) => { e.stopPropagation(); handleRandomize(); }}
                                 className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
                             >
