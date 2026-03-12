@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Seeded RNG ---
@@ -34,10 +34,13 @@ const DEFAULT_CONFIG: AppConfig = {
 export default function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [uiVisible, setUiVisible] = useState(true);
+    const [isAutoAnimating, setIsAutoAnimating] = useState(false);
+    const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
     const isDirtyRef = useRef(true);
+    const autoAnimateRef = useRef(false);
     
     // Interaction refs
     const touchesRef = useRef<Map<number, {x: number, y: number}>>(new Map());
@@ -67,6 +70,11 @@ export default function App() {
         easedPointerRef.current.x += dx * 0.1;
         easedPointerRef.current.y += dy * 0.1;
 
+        if (autoAnimateRef.current) {
+            configRef.current.twist += 0.005;
+            isDirtyRef.current = true;
+        }
+
         // If pointer is moving or config is dirty, we need to draw
         const isPointerMoving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
         if (!isDirtyRef.current && !isPointerMoving && !pointerRef.current.active) return;
@@ -83,7 +91,15 @@ export default function App() {
         const layers = Math.max(1, Math.floor(config.layers));
         const angleStep = (Math.PI * 2) / sym;
 
-        const pointerDist = Math.hypot(easedPointerRef.current.x - width/2, easedPointerRef.current.y - height/2);
+        let activePointerDist = Math.hypot(easedPointerRef.current.x - width/2, easedPointerRef.current.y - height/2);
+        let isBulgeActive = pointerRef.current.active;
+
+        if (autoAnimateRef.current && !pointerRef.current.active) {
+            const time = performance.now() * 0.001;
+            const maxDist = Math.max(width, height) / 2 + config.spread * 2;
+            activePointerDist = (time * 250) % maxDist;
+            isBulgeActive = true;
+        }
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
@@ -139,9 +155,9 @@ export default function App() {
             
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
-            const distToLayer = Math.abs(pointerDist - midR);
+            const distToLayer = Math.abs(activePointerDist - midR);
             let bulge = 0;
-            if (pointerRef.current.active && distToLayer < config.spread * 1.5) {
+            if (isBulgeActive && distToLayer < config.spread * 1.5) {
                 bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
             }
             r2 += bulge;
@@ -471,7 +487,20 @@ export default function App() {
 
     const handleRandomize = () => {
         configRef.current.seed = Math.random() * 10000;
-        configRef.current.layers = Math.floor(Math.random() * 5) + 3;
+        // Keep the user's selected layer count instead of randomizing it
+        isDirtyRef.current = true;
+    };
+
+    const toggleAutoAnimate = () => {
+        const next = !isAutoAnimating;
+        setIsAutoAnimating(next);
+        autoAnimateRef.current = next;
+    };
+
+    const handleLayerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        setLayerCount(val);
+        configRef.current.layers = val;
         isDirtyRef.current = true;
     };
 
@@ -543,7 +572,31 @@ export default function App() {
                             <p className="text-[10px] text-black/60 uppercase tracking-widest font-bold">Hover / Touch to expand layers</p>
                         </div>
 
-                        <div className="pointer-events-auto flex justify-center">
+                        <div className="mb-6 pointer-events-auto touch-auto">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-bold uppercase tracking-wider text-black/70 flex items-center gap-2">
+                                    <Layers size={14} />
+                                    Layers: {layerCount}
+                                </label>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max="30" 
+                                value={layerCount} 
+                                onChange={handleLayerChange}
+                                className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                            />
+                        </div>
+
+                        <div className="pointer-events-auto flex justify-center gap-3">
+                            <button 
+                                onPointerDown={(e) => { e.stopPropagation(); toggleAutoAnimate(); }}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
+                            >
+                                {isAutoAnimating ? <Pause size={18} /> : <Play size={18} />}
+                                {isAutoAnimating ? 'Stop' : 'Animate'}
+                            </button>
                             <button 
                                 onPointerDown={(e) => { e.stopPropagation(); handleRandomize(); }}
                                 className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
