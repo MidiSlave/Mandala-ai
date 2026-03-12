@@ -203,14 +203,14 @@ export default function App() {
         };
 
         // Draw layers from outside in
-        let prevType = -1;
         for (let l = layers; l >= 1; l--) {
             const layerId = l + shift;
             const layerRng = mulberry32(config.seed + layerId * 999);
-            // Pick pattern type, reroll if same as previous layer
+            // Pick pattern type — dedup against outer neighbor independently (no cascade)
             let type = Math.floor(layerRng() * 5);
-            if (type === prevType) type = (type + 1 + Math.floor(layerRng() * 4)) % 5;
-            prevType = type;
+            const neighborRng = mulberry32(config.seed + (layerId + 1) * 999);
+            const neighborType = Math.floor(neighborRng() * 5);
+            if (type === neighborType) type = (type + 1) % 5;
             const filled = layerRng() > 0.5;
             // Per-layer spin: direction + random speed offset
             const spinDir = layerRng() > 0.5 ? 1 : -1;
