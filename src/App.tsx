@@ -194,6 +194,7 @@ export default function App() {
     const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
     const [themeIndex, setThemeIndex] = useState(0);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
+    const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -708,6 +709,13 @@ export default function App() {
         configRef.current.zoomSpeed = val;
     };
 
+    const handleRoughnessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setRoughness(val);
+        configRef.current.roughness = val;
+        isDirtyRef.current = true;
+    };
+
     return (
         <div ref={containerRef} className="relative w-screen h-screen overflow-hidden font-sans selection:bg-black/10" style={{ background: COLOR_THEMES[themeIndex].background, color: COLOR_THEMES[themeIndex].colors[0] }}>
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
@@ -783,89 +791,77 @@ export default function App() {
                             <p className="text-[10px] text-black/60 uppercase tracking-widest font-bold">Hover / Touch to expand layers</p>
                         </div>
 
-                        <div className="mb-6 pointer-events-auto touch-auto">
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-black/70 flex items-center gap-2">
-                                    <Layers size={14} />
+                        <div className="flex gap-4 mb-4 pointer-events-auto touch-auto">
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    <Layers size={12} />
                                     Layers: {layerCount}
                                 </label>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="30"
+                                    value={layerCount}
+                                    onChange={handleLayerChange}
+                                    className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="1"
-                                max="30"
-                                value={layerCount}
-                                onChange={handleLayerChange}
-                                className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                            />
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    Roughness: {roughness.toFixed(1)}
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="6"
+                                    step="0.1"
+                                    value={roughness}
+                                    onChange={handleRoughnessChange}
+                                    className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                />
+                            </div>
                         </div>
 
-                        <div className="mb-6 pointer-events-auto touch-auto">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                Pattern Set: {patternSetIndex === -1 ? 'Mix' : ALL_PATTERN_SETS[patternSetIndex].name}
-                            </label>
-                            <div className="flex flex-wrap gap-1">
-                                <button
-                                    onClick={() => {
-                                        setPatternSetIndex(-1);
-                                        patternSetRef.current = null;
+                        <div className="flex gap-3 mb-4 pointer-events-auto touch-auto">
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    Pattern
+                                </label>
+                                <select
+                                    value={patternSetIndex}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setPatternSetIndex(val);
+                                        patternSetRef.current = val === -1 ? null : ALL_PATTERN_SETS[val];
                                         isDirtyRef.current = true;
                                     }}
-                                    className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
-                                        patternSetIndex === -1
-                                            ? 'bg-black text-white'
-                                            : 'bg-black/10 text-black/60 hover:bg-black/20'
-                                    }`}
+                                    className="w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-black/20"
                                 >
-                                    Mix
-                                </button>
-                                {ALL_PATTERN_SETS.map((ps, i) => (
-                                    <button
-                                        key={ps.name}
-                                        onClick={() => {
-                                            setPatternSetIndex(i);
-                                            patternSetRef.current = ALL_PATTERN_SETS[i];
-                                            isDirtyRef.current = true;
-                                        }}
-                                        className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors ${
-                                            i === patternSetIndex
-                                                ? 'bg-black text-white'
-                                                : 'bg-black/10 text-black/60 hover:bg-black/20'
-                                        }`}
-                                    >
-                                        {ps.name}
-                                    </button>
-                                ))}
+                                    <option value={-1}>Mix (All)</option>
+                                    {ALL_PATTERN_SETS.map((ps, i) => (
+                                        <option key={ps.name} value={i}>{ps.name}</option>
+                                    ))}
+                                </select>
                             </div>
-                        </div>
-
-                        <div className="mb-6 pointer-events-auto touch-auto">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                <Palette size={14} />
-                                Color Theme: {COLOR_THEMES[themeIndex].name}
-                            </label>
-                            <div className="flex flex-wrap gap-1">
-                                {COLOR_THEMES.map((t, i) => (
-                                    <button
-                                        key={t.name}
-                                        onClick={() => {
-                                            setThemeIndex(i);
-                                            themeRef.current = COLOR_THEMES[i];
-                                            isDirtyRef.current = true;
-                                        }}
-                                        className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center gap-1 ${
-                                            i === themeIndex
-                                                ? 'bg-black text-white'
-                                                : 'bg-black/10 text-black/60 hover:bg-black/20'
-                                        }`}
-                                    >
-                                        <span
-                                            className="inline-block w-2 h-2 rounded-full border border-black/20"
-                                            style={{ background: t.colors[0] }}
-                                        />
-                                        {t.name}
-                                    </button>
-                                ))}
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    <Palette size={12} />
+                                    Color
+                                </label>
+                                <select
+                                    value={themeIndex}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setThemeIndex(val);
+                                        themeRef.current = COLOR_THEMES[val];
+                                        isDirtyRef.current = true;
+                                    }}
+                                    className="w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-black/20"
+                                >
+                                    {COLOR_THEMES.map((t, i) => (
+                                        <option key={t.name} value={i}>{t.name}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
