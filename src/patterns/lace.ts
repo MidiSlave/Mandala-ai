@@ -170,110 +170,263 @@ const lacePatterns: PatternSet = {
                 break;
             }
 
-            // ── 1: Loops and Eyes ───────────────────────────────────────
+            // ── 1: Bobbin Lace Eye ─────────────────────────────────────
             case 1: {
-                // Eye/vesica shape: two arcs meeting at left [0.15, 0.5] and right [0.85, 0.5]
-                // Top arc bulges to v=0.25, bottom arc bulges to v=0.75
-                const eyeSegs = 8;
-                const topArc: [number, number][] = [];
-                const botArc: [number, number][] = [];
-                for (let i = 0; i <= eyeSegs; i++) {
-                    const t = i / eyeSegs;
-                    const u = 0.15 + 0.7 * t;
-                    const bulge = Math.sin(Math.PI * t);
-                    topArc.push([u, 0.5 - 0.25 * bulge]); // up toward v=0.25
-                    botArc.push([u, 0.5 + 0.25 * bulge]); // down toward v=0.75
+                const cx = 0.5;
+                const cy = 0.5;
+                const segs = 24;
+
+                // Helper: build a vesica/almond shape (two arcs meeting at tips)
+                const vesica = (
+                    leftU: number, rightU: number,
+                    topBulge: number, botBulge: number, n: number
+                ): [number, number][] => {
+                    const pts: [number, number][] = [];
+                    for (let i = 0; i <= n; i++) {
+                        const t = i / n;
+                        const u = leftU + (rightU - leftU) * t;
+                        const b = Math.sin(Math.PI * t);
+                        pts.push([u, cy - topBulge * b]);
+                    }
+                    for (let i = n; i >= 0; i--) {
+                        const t = i / n;
+                        const u = leftU + (rightU - leftU) * t;
+                        const b = Math.sin(Math.PI * t);
+                        pts.push([u, cy + botBulge * b]);
+                    }
+                    return pts;
+                };
+
+                // --- Outer eye band (thick, as two nested vesicas with fill) ---
+                const outerEye = vesica(0.03, 0.97, 0.40, 0.40, segs);
+                const innerEye = vesica(0.08, 0.92, 0.32, 0.32, segs);
+
+                if (filled) {
+                    drawUV(outerEye, 'filled');
+                    drawUV(innerEye, 'opaque-outline');
+                } else {
+                    drawUV(outerEye, 'outline');
+                    drawUV(innerEye, 'outline');
                 }
 
-                // Full eye outline (top arc forward, bottom arc backward)
-                const eyeOutline: [number, number][] = [
-                    ...topArc,
-                    ...botArc.slice().reverse(),
+                // --- Second concentric eye layer ---
+                const midEye = vesica(0.14, 0.86, 0.25, 0.25, segs);
+                drawUV(midEye, 'outline');
+
+                // --- Inner concentric eye layer ---
+                const innerLayer = vesica(0.22, 0.78, 0.17, 0.17, segs);
+                if (filled) {
+                    drawUV(innerLayer, 'filled');
+                } else {
+                    drawUV(innerLayer, 'outline');
+                }
+
+                // --- Innermost eye layer ---
+                const innermostLayer = vesica(0.28, 0.72, 0.12, 0.12, segs);
+                if (filled) {
+                    drawUV(innermostLayer, 'opaque-outline');
+                } else {
+                    drawUV(innermostLayer, 'outline');
+                }
+
+                // --- Radiating spokes from center to outer eye ---
+                const spokeCount = 12;
+                for (let i = 0; i < spokeCount; i++) {
+                    const angle = (2 * Math.PI * i) / spokeCount;
+                    // Extend spoke to where it hits the outer eye boundary
+                    const cosA = Math.cos(angle);
+                    const sinA = Math.sin(angle);
+                    const reach = 0.32;
+                    const endU = cx + reach * cosA;
+                    const endV = cy + reach * sinA;
+                    drawUV([[cx, cy], [endU, endV]], 'line');
+                }
+
+                // --- Central starburst flower ---
+                const starPetals = 8;
+                const starR = 0.10;
+                for (let i = 0; i < starPetals; i++) {
+                    const angle = (2 * Math.PI * i) / starPetals;
+                    const tipU = cx + starR * Math.cos(angle);
+                    const tipV = cy + starR * Math.sin(angle);
+                    const petal = teardrop(cx, cy, tipU, tipV, 0.035, 5);
+                    if (filled) {
+                        drawUV(petal, i % 2 === 0 ? 'filled' : 'opaque-outline');
+                    } else {
+                        drawUV(petal, 'outline');
+                    }
+                }
+
+                // --- Center dot ---
+                drawUV(circlePoints(cx, cy, 0.03, 8), 'filled');
+
+                // --- Ring around center flower ---
+                drawUV(circlePoints(cx, cy, 0.13, 20), 'outline');
+
+                // --- Decorative scallops along outer eye edge (top) ---
+                const scallopN = 7;
+                for (let i = 0; i < scallopN; i++) {
+                    const t0 = (i + 0.5) / (scallopN + 1);
+                    const u0 = 0.03 + 0.94 * t0;
+                    const bulge0 = Math.sin(Math.PI * t0);
+                    const sv = cy - 0.40 * bulge0;
+                    const arcPts: [number, number][] = [];
+                    for (let j = 0; j <= 6; j++) {
+                        const a = Math.PI * (j / 6);
+                        arcPts.push([u0 + 0.045 * Math.cos(a), sv - 0.04 * Math.sin(a)]);
+                    }
+                    drawUV(arcPts, 'line');
+                }
+
+                // --- Decorative scallops along outer eye edge (bottom) ---
+                for (let i = 0; i < scallopN; i++) {
+                    const t0 = (i + 0.5) / (scallopN + 1);
+                    const u0 = 0.03 + 0.94 * t0;
+                    const bulge0 = Math.sin(Math.PI * t0);
+                    const sv = cy + 0.40 * bulge0;
+                    const arcPts: [number, number][] = [];
+                    for (let j = 0; j <= 6; j++) {
+                        const a = Math.PI * (j / 6);
+                        arcPts.push([u0 + 0.045 * Math.cos(a), sv + 0.04 * Math.sin(a)]);
+                    }
+                    drawUV(arcPts, 'line');
+                }
+
+                // --- Small dots at the tips of the eye ---
+                drawUV(circlePoints(0.03, cy, 0.025, 6), 'filled');
+                drawUV(circlePoints(0.97, cy, 0.025, 6), 'filled');
+
+                // --- Corner decoration: small loops in the four corners ---
+                const cornerPositions: [number, number][] = [
+                    [0.08, 0.08], [0.92, 0.08], [0.08, 0.92], [0.92, 0.92],
                 ];
-                drawUV(eyeOutline, 'outline');
-
-                // Inner filled circle (the "pupil")
-                drawUV(circlePoints(0.5, 0.5, 0.07, 8), 'filled');
-
-                // Small ring around the pupil
-                drawUV(circlePoints(0.5, 0.5, 0.12, 12), 'outline');
-
-                // Loop shapes above the eye (3 small arcs)
-                for (let i = 0; i < 3; i++) {
-                    const cu = 0.25 + 0.25 * i; // u = 0.25, 0.5, 0.75
-                    const loopPts: [number, number][] = [];
-                    for (let j = 0; j <= 6; j++) {
-                        const t = j / 6;
-                        const angle = Math.PI * t;
-                        const lu = cu + 0.08 * Math.cos(angle);
-                        const lv = 0.15 - 0.1 * Math.sin(angle); // arcs above
-                        loopPts.push([lu, lv]);
-                    }
-                    drawUV(loopPts, 'outline');
-                    // Tiny dot at loop peak
-                    drawUV(circlePoints(cu, 0.05, 0.02, 6), 'filled');
+                for (const [cu, cv] of cornerPositions) {
+                    drawUV(circlePoints(cu, cv, 0.05, 8), 'outline');
+                    drawUV(circlePoints(cu, cv, 0.02, 6), 'filled');
                 }
 
-                // Loop shapes below the eye (3 small arcs)
-                for (let i = 0; i < 3; i++) {
-                    const cu = 0.25 + 0.25 * i;
-                    const loopPts: [number, number][] = [];
-                    for (let j = 0; j <= 6; j++) {
-                        const t = j / 6;
-                        const angle = Math.PI * t;
-                        const lu = cu + 0.08 * Math.cos(angle);
-                        const lv = 0.85 + 0.1 * Math.sin(angle); // arcs below
-                        loopPts.push([lu, lv]);
-                    }
-                    drawUV(loopPts, 'outline');
-                    drawUV(circlePoints(cu, 0.95, 0.02, 6), 'filled');
-                }
                 break;
             }
 
-            // ── 2: Mesh Lattice ─────────────────────────────────────────
+            // ── 2: Filet Crochet Grid ────────────────────────────────────
             case 2: {
-                // 3 diagonal lines going one direction: lower-left to upper-right
-                const diag1: [number, number][][] = [
-                    [[0, 0], [0.33, 1]],
-                    [[0.33, 0], [0.67, 1]],
-                    [[0.67, 0], [1, 1]],
-                ];
-                // 3 diagonal lines going other direction: upper-left to lower-right
-                const diag2: [number, number][][] = [
-                    [[0, 1], [0.33, 0]],
-                    [[0.33, 1], [0.67, 0]],
-                    [[0.67, 1], [1, 0]],
-                ];
+                const gridN = 4;
+                const margin = 0.04;
+                const cellW = (1 - 2 * margin) / gridN;
+                const bandW = 0.025; // thickness of grid bands
 
-                for (const seg of diag1) drawUV(seg, 'line');
-                for (const seg of diag2) drawUV(seg, 'line');
+                // --- Outer border frame (thick band) ---
+                const outerFrame: [number, number][] = [
+                    [margin - bandW, margin - bandW],
+                    [1 - margin + bandW, margin - bandW],
+                    [1 - margin + bandW, 1 - margin + bandW],
+                    [margin - bandW, 1 - margin + bandW],
+                ];
+                const innerFrame: [number, number][] = [
+                    [margin, margin],
+                    [1 - margin, margin],
+                    [1 - margin, 1 - margin],
+                    [margin, 1 - margin],
+                ];
+                if (filled) {
+                    drawUV(outerFrame, 'filled');
+                    drawUV(innerFrame, 'opaque-outline');
+                } else {
+                    drawUV(outerFrame, 'outline');
+                    drawUV(innerFrame, 'outline');
+                }
 
-                // Compute intersections of each diag1 line with each diag2 line
-                // diag1[i]: from (0.33*i, 0) to (0.33*(i+1), 1) => parametric
-                // diag2[j]: from (0.33*j, 1) to (0.33*(j+1), 0) => parametric
-                // Solving for intersection:
-                for (let i = 0; i < 3; i++) {
-                    for (let j = 0; j < 3; j++) {
-                        // Line 1: P = (0.33*i, 0) + t*( 0.33, 1 )
-                        // Line 2: Q = (0.33*j, 1) + s*( 0.33, -1 )
-                        // 0.33*i + 0.33*t = 0.33*j + 0.33*s  => i + t = j + s
-                        // 0 + t = 1 - s  =>  t + s = 1  =>  s = 1 - t
-                        // i + t = j + 1 - t  =>  2t = j - i + 1  =>  t = (j - i + 1) / 2
-                        const t = (j - i + 1) / 2;
-                        if (t >= 0 && t <= 1) {
-                            const ix = 0.33 * i + 0.33 * t;
-                            const iy = t;
-                            drawUV(diamond(ix, iy, 0.03), 'filled');
+                // --- Horizontal grid bands ---
+                for (let row = 1; row < gridN; row++) {
+                    const v0 = margin + row * cellW - bandW * 0.5;
+                    const v1 = margin + row * cellW + bandW * 0.5;
+                    const band: [number, number][] = [
+                        [margin, v0], [1 - margin, v0],
+                        [1 - margin, v1], [margin, v1],
+                    ];
+                    if (filled) {
+                        drawUV(band, 'filled');
+                    } else {
+                        drawUV(band, 'outline');
+                    }
+                }
+
+                // --- Vertical grid bands ---
+                for (let col = 1; col < gridN; col++) {
+                    const u0 = margin + col * cellW - bandW * 0.5;
+                    const u1 = margin + col * cellW + bandW * 0.5;
+                    const band: [number, number][] = [
+                        [u0, margin], [u1, margin],
+                        [u1, 1 - margin], [u0, 1 - margin],
+                    ];
+                    if (filled) {
+                        drawUV(band, 'filled');
+                    } else {
+                        drawUV(band, 'outline');
+                    }
+                }
+
+                // --- Cell decorations: checkerboard pattern ---
+                for (let row = 0; row < gridN; row++) {
+                    for (let col = 0; col < gridN; col++) {
+                        const cellU = margin + col * cellW;
+                        const cellV = margin + row * cellW;
+                        const ccx = cellU + cellW * 0.5;
+                        const ccy = cellV + cellW * 0.5;
+                        const isChecked = (row + col) % 2 === 0;
+
+                        if (isChecked) {
+                            if (filled) {
+                                // Filled square in checked cells
+                                const sq: [number, number][] = [
+                                    [cellU + bandW * 0.6, cellV + bandW * 0.6],
+                                    [cellU + cellW - bandW * 0.6, cellV + bandW * 0.6],
+                                    [cellU + cellW - bandW * 0.6, cellV + cellW - bandW * 0.6],
+                                    [cellU + bandW * 0.6, cellV + cellW - bandW * 0.6],
+                                ];
+                                drawUV(sq, 'filled');
+                                // Cut out a circle in the center for decoration
+                                drawUV(circlePoints(ccx, ccy, cellW * 0.22, 12), 'opaque-outline');
+                                // Small dot at center
+                                drawUV(circlePoints(ccx, ccy, cellW * 0.08, 8), 'filled');
+                            } else {
+                                // Diagonal cross in outline mode
+                                drawUV([
+                                    [cellU + bandW, cellV + bandW],
+                                    [cellU + cellW - bandW, cellV + cellW - bandW],
+                                ], 'line');
+                                drawUV([
+                                    [cellU + cellW - bandW, cellV + bandW],
+                                    [cellU + bandW, cellV + cellW - bandW],
+                                ], 'line');
+                                // Circle motif
+                                drawUV(circlePoints(ccx, ccy, cellW * 0.22, 12), 'outline');
+                            }
+                        } else {
+                            // Unchecked cells: rosette / circle motif
+                            const r = cellW * 0.28;
+                            drawUV(circlePoints(ccx, ccy, r, 12), 'outline');
+                            // Small inner circle
+                            drawUV(circlePoints(ccx, ccy, r * 0.4, 8), filled ? 'filled' : 'outline');
+                            // Four small dots around the circle
+                            const dotR = cellW * 0.06;
+                            drawUV(circlePoints(ccx, ccy - r * 0.7, dotR, 6), 'filled');
+                            drawUV(circlePoints(ccx, ccy + r * 0.7, dotR, 6), 'filled');
+                            drawUV(circlePoints(ccx - r * 0.7, ccy, dotR, 6), 'filled');
+                            drawUV(circlePoints(ccx + r * 0.7, ccy, dotR, 6), 'filled');
                         }
                     }
                 }
 
-                // Additional border lines for structure
-                drawUV([[0, 0], [1, 0]], 'line');
-                drawUV([[0, 1], [1, 1]], 'line');
-                drawUV([[0, 0], [0, 1]], 'line');
-                drawUV([[1, 0], [1, 1]], 'line');
+                // --- Corner squares decoration (filled dots at grid intersections) ---
+                for (let row = 0; row <= gridN; row++) {
+                    for (let col = 0; col <= gridN; col++) {
+                        const iu = margin + col * cellW;
+                        const iv = margin + row * cellW;
+                        drawUV(circlePoints(iu, iv, bandW * 0.7, 6), 'filled');
+                    }
+                }
+
                 break;
             }
 
@@ -320,66 +473,135 @@ const lacePatterns: PatternSet = {
                 break;
             }
 
-            // ── 4: Scalloped Border with Pendants ───────────────────────
+            // ── 4: Lace Medallion ────────────────────────────────────────
             case 4: {
-                const scallopCount = 3;
-                const sw = 1 / scallopCount;
+                const cx = 0.5;
+                const cy = 0.5;
+                const outerR = 0.46;
+                const ringSegs = 32;
 
-                // Draw 3 scallop arcs along the outer edge (v=1)
-                for (let i = 0; i < scallopCount; i++) {
-                    const cx = sw * (i + 0.5);
-                    const arcPts: [number, number][] = [];
-                    const segs = 8;
-                    for (let j = 0; j <= segs; j++) {
-                        const t = j / segs;
-                        const angle = Math.PI * t;
-                        const u = cx - (sw * 0.48) * Math.cos(angle);
-                        const v = 1.0 - (sw * 0.48) * Math.sin(angle);
-                        arcPts.push([u, v]);
-                    }
+                // --- Outermost ring band (thick) ---
+                const outerRing = circlePoints(cx, cy, outerR, ringSegs);
+                const outerRingInner = circlePoints(cx, cy, outerR - 0.04, ringSegs);
+                if (filled) {
+                    drawUV(outerRing, 'filled');
+                    drawUV(outerRingInner, 'opaque-outline');
+                } else {
+                    drawUV(outerRing, 'outline');
+                    drawUV(outerRingInner, 'outline');
+                }
 
+                // --- Decorative scallops around the outermost ring ---
+                const scallopN = 12;
+                for (let i = 0; i < scallopN; i++) {
+                    const angle = (2 * Math.PI * i) / scallopN;
+                    const su = cx + (outerR + 0.04) * Math.cos(angle);
+                    const sv = cy + (outerR + 0.04) * Math.sin(angle);
+                    drawUV(circlePoints(su, sv, 0.035, 8), filled ? 'filled' : 'outline');
+                }
+
+                // --- Second ring ---
+                const ring2R = 0.35;
+                drawUV(circlePoints(cx, cy, ring2R, ringSegs), 'outline');
+
+                // --- Radiating petals between ring2 and outerRingInner ---
+                const petalCount = 12;
+                for (let i = 0; i < petalCount; i++) {
+                    const angle = (2 * Math.PI * i) / petalCount;
+                    const innerU = cx + ring2R * Math.cos(angle);
+                    const innerV = cy + ring2R * Math.sin(angle);
+                    const outerU = cx + (outerR - 0.05) * Math.cos(angle);
+                    const outerV = cy + (outerR - 0.05) * Math.sin(angle);
+                    const petal = teardrop(innerU, innerV, outerU, outerV, 0.05, 5);
                     if (filled) {
-                        // Close scallop against outer edge and fill
-                        const shape: [number, number][] = [
-                            [arcPts[0][0], 1.0],
-                            ...arcPts,
-                            [arcPts[arcPts.length - 1][0], 1.0],
-                        ];
-                        drawUV(shape, 'filled');
+                        drawUV(petal, i % 2 === 0 ? 'filled' : 'opaque-outline');
                     } else {
-                        drawUV(arcPts, 'outline');
+                        drawUV(petal, 'outline');
                     }
-
-                    // Small decorative circle inside each scallop
-                    drawUV(circlePoints(cx, 0.88, 0.04, 8), 'outline');
                 }
 
-                // Outer edge line
-                drawUV([[0, 1], [1, 1]], 'line');
-
-                // Pendants hanging from each scallop valley
-                // Valleys are at u = 0, 1/3, 2/3, 1 (boundaries between scallops)
-                const valleyUs = [0, sw, 2 * sw, 1];
-                for (const vu of valleyUs) {
-                    // Teardrop pendant pointing inward (from outer toward inner)
-                    const pendantTop = 0.85;
-                    const pendantBottom = 0.45;
-                    const pendant = teardrop(vu, pendantBottom, vu, pendantTop, 0.06, 5);
-                    drawUV(pendant, 'outline');
-
-                    // Tiny filled dot at the bottom tip of pendant
-                    drawUV(circlePoints(vu, pendantBottom, 0.02, 6), 'filled');
+                // --- Third ring ---
+                const ring3R = 0.24;
+                const ring3 = circlePoints(cx, cy, ring3R, ringSegs);
+                const ring3inner = circlePoints(cx, cy, ring3R - 0.03, ringSegs);
+                if (filled) {
+                    drawUV(ring3, 'filled');
+                    drawUV(ring3inner, 'opaque-outline');
+                } else {
+                    drawUV(ring3, 'outline');
+                    drawUV(ring3inner, 'outline');
                 }
 
-                // Connecting line between scallops at mid-height
-                const midLine: [number, number][] = [];
-                for (let i = 0; i <= 12; i++) {
-                    const t = i / 12;
-                    // Gentle wave connecting the pendants
-                    const v = 0.6 + 0.05 * Math.sin(t * scallopCount * 2 * Math.PI);
-                    midLine.push([t, v]);
+                // --- Small dots at regular intervals on ring2 ---
+                const dotCount = 12;
+                for (let i = 0; i < dotCount; i++) {
+                    const angle = (2 * Math.PI * i) / dotCount + Math.PI / dotCount;
+                    const du = cx + ring2R * Math.cos(angle);
+                    const dv = cy + ring2R * Math.sin(angle);
+                    drawUV(circlePoints(du, dv, 0.02, 6), 'filled');
                 }
-                drawUV(midLine, 'line');
+
+                // --- Inner radiating spokes from center to ring3 ---
+                const spokeCount = 8;
+                for (let i = 0; i < spokeCount; i++) {
+                    const angle = (2 * Math.PI * i) / spokeCount;
+                    const eu = cx + (ring3R - 0.04) * Math.cos(angle);
+                    const ev = cy + (ring3R - 0.04) * Math.sin(angle);
+                    drawUV([[cx, cy], [eu, ev]], 'line');
+                }
+
+                // --- Central star/flower motif ---
+                const starPoints = 8;
+                const starOuterR = 0.12;
+                const starInnerR = 0.06;
+                const starShape: [number, number][] = [];
+                for (let i = 0; i < starPoints * 2; i++) {
+                    const angle = (Math.PI * i) / starPoints - Math.PI / 2;
+                    const r = i % 2 === 0 ? starOuterR : starInnerR;
+                    starShape.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+                }
+                if (filled) {
+                    drawUV(starShape, 'filled');
+                } else {
+                    drawUV(starShape, 'outline');
+                }
+
+                // --- Center dot ---
+                drawUV(circlePoints(cx, cy, 0.03, 8), 'filled');
+
+                // --- Inner ring around center ---
+                drawUV(circlePoints(cx, cy, 0.15, 16), 'outline');
+
+                // --- Corner decorations to fill the tile fully ---
+                const cornerR = 0.09;
+                const corners: [number, number][] = [
+                    [0.04, 0.04], [0.96, 0.04], [0.04, 0.96], [0.96, 0.96],
+                ];
+                for (const [cu, cv] of corners) {
+                    // Quarter-circle fan in each corner
+                    const fan: [number, number][] = [[cu, cv]];
+                    const startAngle = cu < 0.5
+                        ? (cv < 0.5 ? 0 : -Math.PI / 2)
+                        : (cv < 0.5 ? Math.PI / 2 : Math.PI);
+                    for (let i = 0; i <= 8; i++) {
+                        const a = startAngle + (Math.PI / 2) * (i / 8);
+                        fan.push([cu + cornerR * Math.cos(a), cv + cornerR * Math.sin(a)]);
+                    }
+                    if (filled) {
+                        drawUV(fan, 'filled');
+                    } else {
+                        drawUV(fan, 'outline');
+                    }
+                }
+
+                // --- Edge midpoint decorations ---
+                const edgeMids: [number, number][] = [
+                    [0.5, 0.02], [0.5, 0.98], [0.02, 0.5], [0.98, 0.5],
+                ];
+                for (const [eu, ev] of edgeMids) {
+                    drawUV(diamond(eu, ev, 0.04), filled ? 'filled' : 'outline');
+                }
+
                 break;
             }
         }
