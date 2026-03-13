@@ -13,3 +13,7 @@ export { default as celticPatterns } from './celtic';
 export { default as egyptianPatterns } from './egyptian';
 export { default as mesoamericanPatterns } from './mesoamerican';
 export { default as generativePatterns } from './generative';
+export { default as guillochePatterns } from './guilloche';
+export { default as fractalPatterns } from './fractal';
+export { default as spiralPatterns } from './spirals';
+export { default as harmonographPatterns } from './harmonograph';
