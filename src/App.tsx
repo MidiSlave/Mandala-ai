@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette, Maximize2, Minimize2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 
@@ -193,6 +193,7 @@ export default function App() {
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [patternMode, setPatternMode] = useState<PatternMode>(DEFAULT_CONFIG.mode);
+    const dragControls = useDragControls();
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -1167,25 +1168,36 @@ export default function App() {
                 {uiVisible && (
                     <motion.div
                         drag
+                        dragControls={dragControls}
+                        dragListener={false}
                         dragMomentum={false}
+                        dragElastic={0}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
+                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl shadow-2xl shadow-black/10 pointer-events-auto"
                         style={{ zIndex: 40 }}
                     >
-                        <button
-                            onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
-                            className="absolute top-4 right-4 p-2 text-black/40 hover:text-black transition-colors pointer-events-auto touch-auto"
+                        {/* Drag handle — touch-action:none so touch drag works on iPad */}
+                        <div
+                            onPointerDown={(e) => dragControls.start(e)}
+                            className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-2 cursor-grab active:cursor-grabbing select-none"
+                            style={{ touchAction: 'none' }}
                         >
-                            <X size={20} />
-                        </button>
-
-                        <div className="text-center mb-4">
-                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mesoamerican Mandala</h2>
-                            <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
+                            <div>
+                                <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mesoamerican Mandala</h2>
+                                <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
+                            </div>
+                            <button
+                                onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
+                                className="p-2 text-black/40 hover:text-black transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
+
+                        <div className="px-4 sm:px-6 pb-4 sm:pb-6">
 
                         <div className="flex justify-center gap-2 mb-5 pointer-events-auto touch-auto">
                             <button
@@ -1374,6 +1386,7 @@ export default function App() {
                                 <Shuffle size={16} />
                                 Randomize
                             </button>
+                        </div>
                         </div>
                     </motion.div>
                 )}
