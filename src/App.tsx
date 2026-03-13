@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Minimize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Minimize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette, GripHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Seeded RNG ---
@@ -67,6 +67,11 @@ export default function App() {
     // Pointer reactivity
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
+
+    // Panel drag state
+    const [panelPos, setPanelPos] = useState<{x: number, y: number} | null>(null);
+    const panelDragRef = useRef<{dragging: boolean, startX: number, startY: number, origX: number, origY: number}>({dragging: false, startX: 0, startY: 0, origX: 0, origY: 0});
+    const panelRef = useRef<HTMLDivElement>(null);
 
     // --- Drawing Logic ---
     const draw = useCallback(() => {
@@ -936,12 +941,46 @@ export default function App() {
         }
     };
 
+    // Panel drag handlers
+    const onPanelDragStart = (e: React.PointerEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const panel = panelRef.current;
+        if (!panel) return;
+        const rect = panel.getBoundingClientRect();
+        const currentX = panelPos ? panelPos.x : rect.left + rect.width / 2;
+        const currentY = panelPos ? panelPos.y : rect.top;
+        panelDragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, origX: currentX, origY: currentY };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    };
+
+    const onPanelDragMove = (e: React.PointerEvent) => {
+        if (!panelDragRef.current.dragging) return;
+        e.stopPropagation();
+        const dx = e.clientX - panelDragRef.current.startX;
+        const dy = e.clientY - panelDragRef.current.startY;
+        setPanelPos({ x: panelDragRef.current.origX + dx, y: panelDragRef.current.origY + dy });
+    };
+
+    const onPanelDragEnd = (e: React.PointerEvent) => {
+        e.stopPropagation();
+        panelDragRef.current.dragging = false;
+    };
+
+    const panelStyle: React.CSSProperties = panelPos ? {
+        position: 'fixed',
+        left: `${panelPos.x}px`,
+        top: `${panelPos.y}px`,
+        transform: 'translateX(-50%)',
+        bottom: 'auto',
+    } : {};
+
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-none">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
 
             <button 
-                onPointerDown={(e) => { e.stopPropagation(); setUiVisible(v => !v); }}
+                onPointerDown={(e) => { e.stopPropagation(); setPanelPos(null); setUiVisible(v => !v); }}
                 className="absolute top-6 left-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
                 title="Toggle Controls"
             >
@@ -967,14 +1006,26 @@ export default function App() {
 
             <AnimatePresence>
                 {uiVisible && (
-                    <motion.div 
+                    <motion.div
+                        ref={panelRef}
                         initial={{ y: 50, opacity: 0, scale: 0.95 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 50, opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[75vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto"
+                        style={panelStyle}
+                        className={`${panelPos ? 'fixed' : 'absolute bottom-4 left-1/2 -translate-x-1/2'} w-[90%] max-w-md max-h-[75vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto z-40`}
                     >
-                        <button 
+                        {/* Drag handle */}
+                        <div
+                            onPointerDown={onPanelDragStart}
+                            onPointerMove={onPanelDragMove}
+                            onPointerUp={onPanelDragEnd}
+                            className="flex justify-center items-center cursor-grab active:cursor-grabbing py-1 -mt-2 mb-2 touch-none"
+                        >
+                            <GripHorizontal size={20} className="text-black/30" />
+                        </div>
+
+                        <button
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
                             className="absolute top-4 right-4 p-2 text-black/40 hover:text-black transition-colors pointer-events-auto touch-auto"
                         >
