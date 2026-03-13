@@ -6,6 +6,7 @@ export interface PatternContext {
     drawUV: DrawUV;
     filled: boolean;
     baseStyle: PathStyle;
+    rng?: () => number;
 }
 
 export interface PatternSet {
