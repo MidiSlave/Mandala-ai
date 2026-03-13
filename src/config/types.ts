@@ -8,8 +8,6 @@ export interface ColorTheme {
     centerDark: string;
 }
 
-export type PatternMode = 'cultural' | 'generative';
-
 export interface AppConfig {
     symmetry: number;
     layers: number;
@@ -22,5 +20,4 @@ export interface AppConfig {
     waveSpeed: number;
     zoomSpeed: number;
     zoom: number;
-    mode: PatternMode;
 }

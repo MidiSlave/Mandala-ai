@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
-import type { ColorTheme, AppConfig, PatternMode } from './config/types';
+import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
 import { mulberry32 } from './utils/rng';
 import { getFullscreenElement, requestFullscreen, exitFullscreen } from './utils/fullscreen';
 
 const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
-    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns
+    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns,
+    sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns,
+    mesoamericanPatterns, generativePatterns
 ];
 
 export default function App() {
@@ -29,7 +31,6 @@ export default function App() {
     const [themeIndex, setThemeIndex] = useState(0);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
-    const [patternMode, setPatternMode] = useState<PatternMode>(DEFAULT_CONFIG.mode);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -126,10 +127,9 @@ export default function App() {
         const startAbs = -1 - shift;
         const count = layers + 2; // l from -1 to layers
 
-        const isGenerative = config.mode === 'generative';
-        const numTypes = isGenerative ? 8 : 8; // Both modes now have 8 types
-
-        // Calculate types
+        // Calculate types — use the active pattern set's count
+        const activePatternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
+        const numTypes = activePatternSet.count;
         const getStep = (absL: number) => Math.floor(mulberry32(config.seed + absL * 999)() * (numTypes - 1)) + 1;
         let currentType = Math.floor(mulberry32(config.seed)() * numTypes);
         if (startAbs > 0) {
@@ -156,7 +156,7 @@ export default function App() {
             return { x: r * Math.cos(a), y: r * Math.sin(a) };
         };
 
-        const patternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
+        const patternSet = patternSetRef.current;
 
         let layerColor = theme.colors[0]; // updated per-layer
 
@@ -234,363 +234,6 @@ export default function App() {
             }
         };
 
-        // Helper: Draw a circle (arc) properly
-        const drawCircle = (cx: number, cy: number, radius: number, style: PathStyle, rng: () => number, lw?: number) => {
-            const lineWidth = lw ?? 1.5;
-            const rx = (rng() - 0.5) * config.roughness * 0.5;
-            const ry = (rng() - 0.5) * config.roughness * 0.5;
-            ctx.beginPath();
-            ctx.arc(cx + rx, cy + ry, Math.max(0.5, radius), 0, Math.PI * 2);
-            if (style === 'filled' || style === 'opaque-outline') {
-                ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
-                ctx.fill();
-            }
-            ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
-            ctx.lineWidth = lineWidth;
-            ctx.stroke();
-        };
-
-        // ==========================================
-        // GENERATIVE MODE: Procedural pattern generators
-        // ==========================================
-        const drawGenerativeCell = (
-            type: number, r1: number, r2: number,
-            layerTwist: number, filled: boolean, rng: () => number, lw: number
-        ) => {
-            const band = r2 - r1;
-            const midR = (r1 + r2) / 2;
-            const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
-
-            switch (type) {
-                case 0: { // Rose curve / rhodonea
-                    const k = Math.floor(rng() * 4) + 2; // petals parameter
-                    const n = 24 + Math.floor(rng() * 16);
-                    const pts: {x: number, y: number}[] = [];
-                    for (let j = 0; j <= n; j++) {
-                        const t = (j / n) * Math.PI * 2;
-                        const rho = Math.cos(k * t) * band * 0.45;
-                        const u = (t / angleStep);
-                        const v = 0.5 + rho / band;
-                        pts.push(mapUV(
-                            Math.min(1, Math.max(0, u * 0.8 + 0.1)),
-                            Math.min(1, Math.max(0, v)),
-                            r1, r2, layerTwist
-                        ));
-                    }
-                    drawSmoothPath(pts, baseStyle, rng, lw);
-                    break;
-                }
-
-                case 1: { // Phyllotaxis / sunflower spiral dots
-                    const numDots = 12 + Math.floor(rng() * 20);
-                    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-                    for (let j = 0; j < numDots; j++) {
-                        const frac = j / numDots;
-                        const theta = j * goldenAngle;
-                        const u = ((theta % angleStep) / angleStep);
-                        const v = 0.1 + frac * 0.8;
-                        const pt = mapUV(u, v, r1, r2, layerTwist);
-                        const dotR = Math.max(1, band * 0.015 * (1 + frac));
-                        drawCircle(pt.x, pt.y, dotR, j % 3 === 0 ? 'filled' : 'outline', rng, lw * 0.7);
-                    }
-                    break;
-                }
-
-                case 2: { // Lissajous figure
-                    const a = Math.floor(rng() * 3) + 1;
-                    const b = Math.floor(rng() * 3) + 2;
-                    const delta = rng() * Math.PI;
-                    const n = 40;
-                    const pts: {x: number, y: number}[] = [];
-                    for (let j = 0; j <= n; j++) {
-                        const t = (j / n) * Math.PI * 2;
-                        const u = 0.1 + 0.8 * (0.5 + 0.5 * Math.sin(a * t + delta));
-                        const v = 0.1 + 0.8 * (0.5 + 0.5 * Math.sin(b * t));
-                        pts.push(mapUV(u, v, r1, r2, layerTwist));
-                    }
-                    drawSmoothPath(pts, baseStyle, rng, lw);
-                    break;
-                }
-
-                case 3: { // Concentric arcs with varying radii
-                    const nArcs = 3 + Math.floor(rng() * 4);
-                    for (let j = 0; j < nArcs; j++) {
-                        const frac = (j + 0.5) / nArcs;
-                        const arcR = r1 + frac * band;
-                        const arcSpan = angleStep * (0.3 + rng() * 0.6);
-                        const arcStart = layerTwist + (angleStep - arcSpan) * 0.5;
-                        const pts: {x: number, y: number}[] = [];
-                        const steps = 16;
-                        for (let s = 0; s <= steps; s++) {
-                            const a = arcStart + (s / steps) * arcSpan;
-                            pts.push({ x: arcR * Math.cos(a), y: arcR * Math.sin(a) });
-                        }
-                        drawSmoothPath(pts, j % 2 === 0 ? baseStyle : 'line', rng, lw);
-                    }
-                    break;
-                }
-
-                case 4: { // Wave interference / moire pattern
-                    const freq1 = 2 + Math.floor(rng() * 4);
-                    const freq2 = 3 + Math.floor(rng() * 5);
-                    const nLines = 5 + Math.floor(rng() * 4);
-                    for (let j = 0; j < nLines; j++) {
-                        const baseV = (j + 1) / (nLines + 1);
-                        const pts: {x: number, y: number}[] = [];
-                        const steps = 20;
-                        for (let s = 0; s <= steps; s++) {
-                            const u = s / steps;
-                            const wave = Math.sin(u * Math.PI * freq1) * 0.06 +
-                                         Math.sin(u * Math.PI * freq2 + baseV * Math.PI) * 0.04;
-                            pts.push(mapUV(u, baseV + wave, r1, r2, layerTwist));
-                        }
-                        drawSmoothPath(pts, 'line', rng, lw * 0.8);
-                    }
-                    break;
-                }
-
-                case 5: { // Spirograph / epitrochoid
-                    const R = 0.4;
-                    const rr = 0.1 + rng() * 0.15;
-                    const d = 0.05 + rng() * 0.2;
-                    const n = 60;
-                    const pts: {x: number, y: number}[] = [];
-                    for (let j = 0; j <= n; j++) {
-                        const t = (j / n) * Math.PI * 6;
-                        const x = (R - rr) * Math.cos(t) + d * Math.cos(((R - rr) / rr) * t);
-                        const y = (R - rr) * Math.sin(t) + d * Math.sin(((R - rr) / rr) * t);
-                        const u = 0.5 + x;
-                        const v = 0.5 + y;
-                        pts.push(mapUV(
-                            Math.min(1, Math.max(0, u)),
-                            Math.min(1, Math.max(0, v)),
-                            r1, r2, layerTwist
-                        ));
-                    }
-                    drawSmoothPath(pts, baseStyle, rng, lw);
-                    break;
-                }
-
-                case 6: { // Recursive triangular subdivision
-                    const subdivide = (
-                        ax: number, ay: number, bx: number, by: number,
-                        cx: number, cy: number, depth: number
-                    ) => {
-                        if (depth <= 0) {
-                            const pts = [
-                                mapUV(ax, ay, r1, r2, layerTwist),
-                                mapUV(bx, by, r1, r2, layerTwist),
-                                mapUV(cx, cy, r1, r2, layerTwist)
-                            ];
-                            drawSmoothPath(pts, rng() > 0.6 ? 'filled' : 'outline', rng, lw * 0.7);
-                            return;
-                        }
-                        const mx1 = (ax + bx) / 2, my1 = (ay + by) / 2;
-                        const mx2 = (bx + cx) / 2, my2 = (by + cy) / 2;
-                        const mx3 = (ax + cx) / 2, my3 = (ay + cy) / 2;
-                        subdivide(ax, ay, mx1, my1, mx3, my3, depth - 1);
-                        subdivide(mx1, my1, bx, by, mx2, my2, depth - 1);
-                        subdivide(mx3, my3, mx2, my2, cx, cy, depth - 1);
-                    };
-                    const depth = 2 + Math.floor(rng() * 2);
-                    subdivide(0.05, 0.05, 0.95, 0.05, 0.5, 0.95, depth);
-                    break;
-                }
-
-                case 7: { // Radial spokes with terminal ornaments
-                    const nSpokes = 3 + Math.floor(rng() * 5);
-                    const hasOrnament = rng() > 0.4;
-                    for (let j = 0; j < nSpokes; j++) {
-                        const u = (j + 0.5) / nSpokes;
-                        // Spoke line
-                        const p1 = mapUV(u, 0.05, r1, r2, layerTwist);
-                        const p2 = mapUV(u, 0.95, r1, r2, layerTwist);
-                        drawSmoothPath([p1, p2], 'line', rng, lw);
-                        // Terminal diamond or circle
-                        if (hasOrnament) {
-                            const ornR = band * 0.04;
-                            if (j % 2 === 0) {
-                                drawCircle(p2.x, p2.y, ornR, 'filled', rng, lw * 0.7);
-                            } else {
-                                const d = ornR;
-                                const pts = [
-                                    { x: p2.x, y: p2.y - d },
-                                    { x: p2.x + d, y: p2.y },
-                                    { x: p2.x, y: p2.y + d },
-                                    { x: p2.x - d, y: p2.y }
-                                ];
-                                drawSmoothPath(pts, 'filled', rng, lw * 0.7);
-                            }
-                        }
-                    }
-                    // Midline arc
-                    const midPts: {x: number, y: number}[] = [];
-                    for (let s = 0; s <= 12; s++) {
-                        midPts.push(mapUV(s / 12, 0.5, r1, r2, layerTwist));
-                    }
-                    drawSmoothPath(midPts, filled ? 'filled' : 'outline', rng, lw * 0.6);
-                    break;
-                }
-            }
-        };
-
-        // ==========================================
-        // CULTURAL MODE: Improved Mesoamerican patterns
-        // ==========================================
-        const drawCulturalCell = (
-            type: number, r1: number, r2: number,
-            layerTwist: number, filled: boolean, rng: () => number, lw: number
-        ) => {
-            const band = r2 - r1;
-            const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
-
-            const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
-                drawSmoothPath(pts, style, rng, lw);
-            };
-
-            switch (type) {
-                case 0: { // Stepped Pyramid (Chakana) - refined with more steps
-                    drawUV([
-                        [0, 0], [0.15, 0], [0.15, 0.15], [0.3, 0.15],
-                        [0.3, 0.35], [0.45, 0.35], [0.45, 0.55],
-                        [0.55, 0.55], [0.55, 0.75], [0.7, 0.75],
-                        [0.7, 0.85], [0.85, 0.85], [0.85, 1], [1, 1], [1, 0]
-                    ], baseStyle);
-                    // Inner step accent
-                    if (!filled) {
-                        drawUV([[0.25, 0.2], [0.4, 0.2], [0.4, 0.4], [0.55, 0.4]], 'line');
-                    }
-                    break;
-                }
-
-                case 1: { // Mayan Glyph Block - nested frames with eye motif
-                    drawUV([[0.03, 0.03], [0.97, 0.03], [0.97, 0.97], [0.03, 0.97]], baseStyle);
-                    if (!filled) {
-                        drawUV([[0.15, 0.15], [0.85, 0.15], [0.85, 0.85], [0.15, 0.85]], 'outline');
-                        drawUV([[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]], 'filled');
-                        // Center dot
-                        const center = mapUV(0.5, 0.5, r1, r2, layerTwist);
-                        drawCircle(center.x, center.y, band * 0.04, 'opaque-outline', rng, lw);
-                    } else {
-                        drawUV([[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]], 'opaque-outline');
-                        drawUV([[0.35, 0.35], [0.65, 0.35], [0.65, 0.65], [0.35, 0.65]], 'opaque-outline');
-                    }
-                    break;
-                }
-
-                case 2: { // Sun Rays - proper triangular rays with graduated hatching
-                    drawUV([[0.05, 0], [0.95, 0], [0.5, 0.92]], baseStyle);
-                    if (!filled) {
-                        const hatchCount = 5;
-                        for (let h = 0; h < hatchCount; h++) {
-                            const t = (h + 1) / (hatchCount + 1);
-                            const left = 0.05 + (0.5 - 0.05) * t;
-                            const right = 0.95 - (0.95 - 0.5) * t;
-                            const v = t * 0.92;
-                            drawUV([[left, v], [right, v]], 'line');
-                        }
-                    } else {
-                        // Inner triangle cutout
-                        drawUV([[0.25, 0.15], [0.75, 0.15], [0.5, 0.65]], 'opaque-outline');
-                    }
-                    break;
-                }
-
-                case 3: { // Aztec Fret (Meander) - more detailed spiral fret
-                    if (filled) {
-                        drawUV([
-                            [0, 0], [0.85, 0], [0.85, 0.85], [0.15, 0.85],
-                            [0.15, 0.3], [0.55, 0.3], [0.55, 0.55], [0.35, 0.55],
-                            [0.35, 0.15], [1.0, 0.15], [1.0, 1.0], [0, 1.0]
-                        ], 'filled');
-                        // Inner accent
-                        drawUV([[0.4, 0.38], [0.5, 0.38], [0.5, 0.48], [0.4, 0.48]], 'opaque-outline');
-                    } else {
-                        // Open fret path with more detail
-                        drawUV([
-                            [0.05, 0.05], [0.95, 0.05], [0.95, 0.95],
-                            [0.25, 0.95], [0.25, 0.35], [0.75, 0.35],
-                            [0.75, 0.65], [0.45, 0.65]
-                        ], 'line');
-                        drawUV([[0.05, 0.05], [0.05, 0.95]], 'line');
-                    }
-                    break;
-                }
-
-                case 4: { // Interlocking Teeth - with serrated edges
-                    drawUV([[0, 0], [0.5, 0.75], [1, 0]], baseStyle);
-                    drawUV([[0, 1], [0.5, 0.25], [1, 1]], filled ? 'opaque-outline' : 'filled');
-                    // Serration detail
-                    if (!filled) {
-                        drawUV([[0.2, 0.3], [0.5, 0.55], [0.8, 0.3]], 'line');
-                        drawUV([[0.2, 0.7], [0.5, 0.45], [0.8, 0.7]], 'line');
-                    }
-                    break;
-                }
-
-                case 5: { // Serpent scales - overlapping curved scales
-                    const cols = 3;
-                    const rows = 2;
-                    for (let row = 0; row < rows; row++) {
-                        for (let col = 0; col < cols; col++) {
-                            const cx = (col + 0.5 + (row % 2) * 0.5) / (cols + 1);
-                            const cy = (row + 0.5) / (rows + 0.5);
-                            const w = 0.3 / cols;
-                            const h = 0.35 / rows;
-                            const pts: [number, number][] = [];
-                            for (let t = 0; t <= 12; t++) {
-                                const angle = (t / 12) * Math.PI;
-                                pts.push([
-                                    cx + Math.cos(angle) * w,
-                                    cy - Math.sin(angle) * h
-                                ]);
-                            }
-                            drawUV(pts, row % 2 === 0 ? baseStyle : (filled ? 'opaque-outline' : 'outline'));
-                        }
-                    }
-                    break;
-                }
-
-                case 6: { // Quetzalcoatl feather - flowing curves with spine
-                    // Central spine
-                    drawUV([[0.5, 0.0], [0.5, 1.0]], 'line');
-                    // Feather barbs - alternating left/right curves
-                    const nBarbs = 5;
-                    for (let j = 0; j < nBarbs; j++) {
-                        const v = (j + 0.5) / nBarbs;
-                        const side = j % 2 === 0 ? 1 : -1;
-                        const pts: [number, number][] = [
-                            [0.5, v],
-                            [0.5 + side * 0.15, v - 0.04],
-                            [0.5 + side * 0.35, v - 0.06],
-                            [0.5 + side * 0.45, v - 0.02]
-                        ];
-                        drawUV(pts, j % 3 === 0 ? baseStyle : 'line');
-                    }
-                    break;
-                }
-
-                case 7: { // Ollin (movement) - interlocking curved wings
-                    // Four-part rotational motif
-                    drawUV([
-                        [0.5, 0.1], [0.7, 0.2], [0.9, 0.5],
-                        [0.7, 0.45], [0.55, 0.4]
-                    ], baseStyle);
-                    drawUV([
-                        [0.5, 0.9], [0.3, 0.8], [0.1, 0.5],
-                        [0.3, 0.55], [0.45, 0.6]
-                    ], baseStyle);
-                    // Center cross
-                    drawUV([[0.4, 0.45], [0.6, 0.45], [0.6, 0.55], [0.4, 0.55]], filled ? 'opaque-outline' : 'filled');
-                    // Corner accents
-                    const c = mapUV(0.5, 0.5, r1, r2, layerTwist);
-                    drawCircle(c.x, c.y, band * 0.025, 'filled', rng, lw);
-                    break;
-                }
-            }
-        };
-
         // Draw Layers from outside in
         for (let l = layers; l >= -1; l--) {
             const absL = l - shift;
@@ -647,20 +290,15 @@ export default function App() {
                 ctx.save();
                 ctx.rotate(i * angleStep);
 
-                if (isGenerative) {
-                    drawGenerativeCell(type, r1, r2, layerTwist, filled, layerRng, lw);
-                } else {
-                    // Use modular pattern sets from ./patterns
-                    const activeSet = patternSet
-                        ? patternSet
-                        : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
-                    const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                        const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
-                        drawSmoothPath(pts, style, layerRng, lw);
-                    };
-                    const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
-                    activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle });
-                }
+                const activeSet = patternSet
+                    ? patternSet
+                    : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
+                const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                    const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
+                    drawSmoothPath(pts, style, layerRng, lw);
+                };
+                const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
+                activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
 
                 ctx.restore();
             }
@@ -914,7 +552,7 @@ export default function App() {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const link = document.createElement('a');
-        link.download = `aztec-mandala-${Date.now()}.png`;
+        link.download = `mandala-${Date.now()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     };
@@ -1030,33 +668,6 @@ export default function App() {
                         <div className="text-center mb-4">
                             <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
                             <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Pattern Explorer</p>
-                        </div>
-
-                        <div className="flex justify-center gap-2 mb-5 pointer-events-auto touch-auto">
-                            <button
-                                onPointerDown={(e) => {
-                                    e.stopPropagation();
-                                    setPatternMode('cultural');
-                                    configRef.current.mode = 'cultural';
-                                    isDirtyRef.current = true;
-                                }}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${patternMode === 'cultural' ? 'bg-black text-white shadow-md' : 'bg-black/5 text-black/60 hover:bg-black/10'}`}
-                            >
-                                <Palette size={14} />
-                                Cultural
-                            </button>
-                            <button
-                                onPointerDown={(e) => {
-                                    e.stopPropagation();
-                                    setPatternMode('generative');
-                                    configRef.current.mode = 'generative';
-                                    isDirtyRef.current = true;
-                                }}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${patternMode === 'generative' ? 'bg-black text-white shadow-md' : 'bg-black/5 text-black/60 hover:bg-black/10'}`}
-                            >
-                                <Sparkles size={14} />
-                                Generative
-                            </button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-6">

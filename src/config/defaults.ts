@@ -11,8 +11,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     spinVariance: 0.8,
     waveSpeed: 1,
     zoomSpeed: 0.3,
-    zoom: 0,
-    mode: 'cultural'
+    zoom: 0
 };
 
 export const TUNNEL_POWER = 2.5;
