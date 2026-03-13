@@ -170,6 +170,7 @@ const DEFAULT_CONFIG: AppConfig = {
     spinSpeed: 1,
     spinVariance: 0.8,
     waveSpeed: 1,
+    zoomSpeed: 0.3,
     zoom: 0,
     mode: 'cultural'
 };
@@ -192,6 +193,12 @@ export default function App() {
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
+    const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
+    const [patternSetIndex, setPatternSetIndex] = useState(0);
+    const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
+    const [themeIndex, setThemeIndex] = useState(0);
+    const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
+    const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
     const [patternMode, setPatternMode] = useState<PatternMode>(DEFAULT_CONFIG.mode);
 
     // High-frequency refs
@@ -771,8 +778,8 @@ export default function App() {
             const midR = (r1 + r2) / 2;
             const distToLayer = Math.abs(activePointerDist - midR);
             let bulge = 0;
-            if (isBulgeActive && distToLayer < thickness * 2) {
-                bulge = (1 - distToLayer / (thickness * 2)) * (thickness * 0.5);
+            if (isBulgeActive && distToLayer < config.spread * 1.5) {
+                bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
             }
             r2 += bulge;
             if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
@@ -792,11 +799,8 @@ export default function App() {
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Per-layer twist with variance:
-            // Each layer spins at its own speed = base * direction * (1 + variance * offset)
-            const twistMag = 1 / (t2 * 3 + 0.3);
-            const layerSpeedMul = spinDir * (1.0 + config.spinVariance * speedOffset);
-            const layerTwist = config.twist * twistMag * layerSpeedMul;
+            // Twist: Inner layers twist more than outer layers
+            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
 
             // Draw separator ring at outer boundary
             ctx.beginPath();
@@ -821,31 +825,28 @@ export default function App() {
         }
 
         // Dense center vanishing point — inside the innermost visible layer
-        const innermostT = Math.max(0, (firstId - zoom) / N);
-        const coreR = tunnelRadius(innermostT, maxR);
-        if (coreR > 0.5) {
+        const innerCoreR = Math.max(0, offset * config.spread);
+        if (innerCoreR > 2) {
             const cd = theme.centerDark;
-            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerCoreR);
             grad.addColorStop(0, `rgba(${cd}, 0.85)`);
             grad.addColorStop(0.4, `rgba(${cd}, 0.5)`);
             grad.addColorStop(0.8, `rgba(${cd}, 0.15)`);
             grad.addColorStop(1, `rgba(${cd}, 0)`);
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+            ctx.arc(0, 0, innerCoreR, 0, Math.PI * 2);
             ctx.fill();
 
-            const coreRng = mulberry32(config.seed + firstId * 7);
+            const coreRng = mulberry32(config.seed + shift * 7);
             ctx.strokeStyle = `rgba(${cd}, 0.3)`;
             ctx.lineWidth = 0.5;
             for (let i = 0; i < 6; i++) {
-                const rr = coreR * (0.1 + coreRng() * 0.8);
+                const rr = innerCoreR * (0.1 + coreRng() * 0.8);
                 ctx.beginPath();
                 ctx.arc(0, 0, rr, 0, Math.PI * 2);
                 ctx.stroke();
             }
-
-            ctx.restore(); // Restore clipping
         }
 
         // Draw inner circle cap
