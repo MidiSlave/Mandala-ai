@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Interactive Mandala Generator — a browser-based app that renders procedural mandala patterns on an HTML5 Canvas using a hand-drawn / rough aesthetic. Users can interact via touch gestures or mouse to twist, zoom (infinite tunnel effect), randomize, and animate the mandala. 24 pattern sets are available across cultural, generative, and artistic categories, plus a "Mix" mode that combines them.
+Interactive Mandala Generator — a browser-based app that renders procedural mandala patterns on an HTML5 Canvas using a hand-drawn / rough aesthetic. Users can interact via touch gestures or mouse to twist, zoom (infinite tunnel effect), randomize, and animate the mandala. 29 pattern sets are available across cultural, generative, artistic, and research-inspired categories, plus a "Mix" mode that combines them.
 
 ## Tech Stack
 
@@ -43,7 +43,7 @@ src/
   patterns/
     types.ts           # Core types: PathStyle, DrawUV, PatternContext, PatternSet
     index.ts           # Re-exports all pattern sets
-    # Cultural patterns (13):
+    # Cultural patterns (17):
     aztec.ts           # Aztec / Mayan (5 motifs)
     nordic.ts          # Nordic / Fair Isle (5 motifs)
     lace.ts            # Lace / Doily
@@ -70,6 +70,12 @@ src/
     # Art movement patterns (2):
     opart.ts           # Op Art / optical illusions (6 motifs)
     artnouveau.ts      # Art Nouveau / organic curves (6 motifs)
+    # Research-inspired patterns (5):
+    embroidery.ts      # Embroidery / Stitch — herringbone, chain, blanket, feather, cross, seed (6 motifs)
+    maze.ts            # Maze / Labyrinth — theta maze, recursive division, labyrinth, binary tree, Hilbert, braid (6 motifs)
+    flowfield.ts       # Flow Field — sinusoidal, swirl, noise traces, distorted grid, convergence, turbulence (6 motifs)
+    noisestrata.ts     # Noise Strata — topographic, fragmented grid, ridge, terrain, warp, columns (6 motifs)
+    organiccells.ts    # Organic Cells — circle packing, metaballs, reaction-diffusion, Voronoi, mycelium, patchwork (6 motifs)
 tools/                 # Offline analysis/rendering utilities (not part of the web app)
 index.html             # HTML shell
 vite.config.ts         # Vite config (base path, Tailwind plugin, env vars)
@@ -327,3 +333,42 @@ const pw = require('/opt/node22/lib/node_modules/playwright/node_modules/playwri
 - Auto-deploys to GitHub Pages via `.github/workflows/deploy.yml`
 - Triggers on pushes to `main` and `claude/**` branches
 - Base path: `/Mandala-ai/`
+
+## Pattern Inspiration Sources
+
+The research-inspired pattern sets (Embroidery, Maze, Flow Field, Noise Strata, Organic Cells) were created based on study of the following external resources:
+
+### Embroidery / Stitch Patterns
+- **Ink/Stitch Stitch Library** — https://inkstitch.org/docs/stitch-library/
+  - Embroidery stitch types: running, satin, zigzag, chain, cross, herringbone, blanket, feather, stem, seed, fly, couching, lattice, ripple, circular fill, meander fill, contour fill, backstitch, bean stitch
+  - UV adaptations: dashed lines, interlocking loops, comb/fence edges, alternating V-branches, X-mark grids, scattered short marks
+
+### Maze / Labyrinth Algorithms
+- **Daedalus Maze Program** — https://astrolog.org/labyrnth/daedalus.htm
+  - Maze generation: recursive backtracking, Prim's, Kruskal's, Eller's, Wilson's, Hunt-and-Kill, Growing Tree, recursive division, binary tree, sidewinder
+  - Maze shapes: orthogonal, delta, sigma, theta (circular), upsilon, zeta, omega, crack, fractal
+  - Labyrinth types: classical/Cretan (7-circuit), Chartres (11-circuit), Man in the Maze (I'itoi)
+  - Space-filling curves: Hilbert, dragon, Sierpinski
+  - Routing: perfect, braid (no dead ends), sparse, unicursal, weave (over-and-under)
+  - Texture properties: river factor, bias, run, dead-end percentage
+
+### Flow Field & Generative Art Techniques
+- **Generative Hut — Penplotter Tutorial** — https://www.generativehut.com/post/generative-art-python-tutorial-for-penplotter
+  - Techniques: distorted grid with column interpolation (lerp), Perlin noise flow fields, circle packing, recursive polygon subdivision with Chaikin smoothing, k-means clustering with convex hulls (patchwork), hatching/cross-hatching
+- **Clojure2D Library** — https://github.com/Clojure2D/clojure2d
+  - Noise: Perlin, Simplex, value, discrete; FBM, ridged multi-fractal, billow, warp noise (Inigo Quilez domain warping)
+  - Vector fields: 100+ named variations from fractal flames (sinusoidal, swirl, horseshoe, polar, julia, waves, fisheye, popcorn, etc.)
+  - Simulations: particle systems, reaction-diffusion, physarum/slime mold, cellular automata (Wolfram rules, Langton's ant)
+  - Geometry: circle inversion/Mobius transforms, L-systems, grid tessellations (hex/tri/rhomb), low-discrepancy sequences (Halton, Sobol, R2, Poisson disc)
+  - Other: strange attractors, harmonograms with noise, metaballs, glitch/signal processing
+
+### Noise Strata & Fragmented Geometry
+- **GenToaster — Noise Line Rows** — https://github.com/Domenicobrz/GenToaster-noise-line-rows
+  - Multi-octave Simplex noise (5 octaves, fBm) displacing horizontal lines to create topographic/seismic strata
+- **GenToaster — Fragmented Cubes** — https://github.com/Domenicobrz/GenToaster-fragmented-cubes
+  - 5x5 grid of 3D cubes with Simplex noise vertex displacement; `hugeNoise` flag for dramatic shattering; wireframe rendering with dashed back-faces
+- **GenToaster — Recursive Squares** — https://github.com/Domenicobrz/GenToaster-recursive-squares
+  - Quad-tree subdivision (max depth 6, 70% early termination); nested outer/inner squares with Simplex noise rotation/scale; Mondrian-meets-fractal aesthetic
+
+### Organic Cells & Biological Patterns
+- Sources combined from Clojure2D (reaction-diffusion, physarum, metaballs, Voronoi grids), penplotter tutorial (circle packing, k-means patchwork), and Daedalus (crack mazes as Voronoi-like amorphous tessellations)
