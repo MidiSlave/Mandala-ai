@@ -4,8 +4,9 @@
  *
  * Commands:
  *   render-tiles [--set <name>] [--size <px>]     Render all pattern tiles to PNG
+ *   render-strips [--set <name>] [--cell-size <px>] Render reference strip images (motifs in rows)
  *   render-mandalas [--size <px>] [--seed <n>]    Render full mandalas for each set + mix
- *   render-all [--size <px>]                      Render both tiles and mandalas
+ *   render-all [--size <px>]                      Render tiles + mandalas + strips
  *   analyze [--dir <path>]                        Analyze rendered tiles, produce report
  *   report                                        Render + analyze in one shot (full pipeline)
  *   reference <url|path> [--name <label>]         Download/load reference image and analyze
@@ -34,8 +35,10 @@ import {
     getPatternSetByName,
     renderTile,
     renderMandala,
+    renderStrip,
     renderAllTiles,
     renderAllMandalas,
+    renderAllStrips,
     savePNG,
 } from './renderer';
 import { analyzeTile, analyzeAllTiles, formatReport } from './analyzer';
@@ -100,12 +103,38 @@ async function main() {
             break;
         }
 
+        case 'render-strips': {
+            const cellSize = parseInt(flags['cell-size'] || '200');
+            const repeats = parseInt(flags.repeats || '4');
+            const setFilter = flags.set;
+            if (setFilter) {
+                const ps = getPatternSetByName(setFilter);
+                if (!ps) {
+                    console.error(`Pattern set "${setFilter}" not found. Available: ${ALL_PATTERN_SETS.map(s => s.name).join(', ')}`);
+                    process.exit(1);
+                }
+                console.log(`Rendering strip for "${ps.name}" (${ps.count} motifs, ${cellSize}px cells, ${repeats} repeats)...`);
+                const safeName = ps.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().replace(/-+/g, '-');
+                const canvas = renderStrip(ps, cellSize, repeats, seed);
+                const fpath = path.join(OUTPUT_DIR, `strip-${safeName}.png`);
+                savePNG(canvas, fpath);
+                console.log(`  Saved → ${fpath}`);
+            } else {
+                console.log(`Rendering strips for all ${ALL_PATTERN_SETS.length} pattern sets...`);
+                const files = renderAllStrips(OUTPUT_DIR, cellSize, repeats, seed);
+                console.log(`  Rendered ${files.length} strips → ${OUTPUT_DIR}`);
+            }
+            break;
+        }
+
         case 'render-all': {
-            console.log(`Rendering all tiles and mandalas...`);
+            console.log(`Rendering all tiles, mandalas, and strips...`);
             const tiles = renderAllTiles(OUTPUT_DIR, tileSize);
             console.log(`  ${tiles.length} tiles`);
             const mandalas = renderAllMandalas(OUTPUT_DIR, { size, seed });
             console.log(`  ${mandalas.length} mandalas`);
+            const strips = renderAllStrips(OUTPUT_DIR);
+            console.log(`  ${strips.length} strips`);
             console.log(`  All output → ${OUTPUT_DIR}`);
             break;
         }
@@ -222,8 +251,9 @@ Mandala Pattern CLI — headless render, analyze, and improve patterns.
 
 Commands:
   render-tiles [--set <name>] [--tile-size <px>]    Render pattern tiles to PNG
+  render-strips [--set <name>] [--cell-size <px>]   Render reference strip images (motifs in rows)
   render-mandalas [--size <px>] [--seed <n>]        Render full mandalas
-  render-all [--size <px>]                          Render tiles + mandalas
+  render-all [--size <px>]                          Render tiles + mandalas + strips
   analyze [--dir <path>]                            Analyze rendered tiles
   report                                            Full pipeline: render + analyze
   reference <url|path> [--name <label>]             Download/analyze reference image
@@ -232,7 +262,8 @@ Commands:
   help                                              Show this help
 
 Examples:
-  npx tsx tools/cli.ts render-tiles
+  npx tsx tools/cli.ts render-strips                 Render strips for all 29 pattern sets
+  npx tsx tools/cli.ts render-strips --set maze      Render strip for maze patterns only
   npx tsx tools/cli.ts render-tiles --set nordic
   npx tsx tools/cli.ts render-mandalas --size 1200
   npx tsx tools/cli.ts report
