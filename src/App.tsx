@@ -176,9 +176,10 @@ export default function App() {
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         // Writes directly into target object to avoid allocations
-        const mapUVInto = (u: number, v: number, r1: number, r2: number, layerTwist: number, out: {x: number, y: number}) => {
+        // sliceAngle is the angular width of the current symmetry slice
+        const mapUVInto = (u: number, v: number, r1: number, r2: number, layerTwist: number, sliceAngle: number, out: {x: number, y: number}) => {
             const r = r1 + v * (r2 - r1);
-            const a = (u * angleStep) + layerTwist;
+            const a = (u * sliceAngle) + layerTwist;
             out.x = r * Math.cos(a);
             out.y = r * Math.sin(a);
         };
@@ -197,6 +198,9 @@ export default function App() {
         // Helper: Draw a smooth bezier curve through points
         // Use pre-allocated ref buffers to avoid GC pressure
         const { ox: _ox, oy: _oy, px: _px, py: _py } = smoothBufRef.current;
+
+        // LOD flag set per-layer: skip second stroke pass for small bands
+        let lowDetail = false;
 
         const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number, count?: number) => {
             const n = count ?? points.length;
@@ -248,7 +252,8 @@ export default function App() {
             ctx.stroke();
 
             // Second pass with slight offset for hand-drawn feel (non-filled only)
-            if (style !== 'filled') {
+            // Skip on small layers — the double-stroke is invisible at that scale
+            if (style !== 'filled' && !lowDetail) {
                 for (let i = 0; i < n; i++) {
                     _px[i] = points[i].x + _ox[i] * 1.3;
                     _py[i] = points[i].y + _oy[i] * 1.3;
@@ -285,7 +290,27 @@ export default function App() {
             r2 += bulge;
             if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
+            const band = r2 - r1;
             const lw = getLineWidth(r1, r2);
+
+            // LOD: skip patterns entirely for very thin bands (< 8px) — just draw ring
+            if (band < 8) {
+                ctx.beginPath();
+                ctx.arc(0, 0, r2, 0, Math.PI * 2);
+                ctx.strokeStyle = theme.strokeLight;
+                ctx.lineWidth = lw * 0.8;
+                ctx.stroke();
+                continue;
+            }
+
+            // LOD: reduce detail for small bands (< 30px)
+            lowDetail = band < 30;
+
+            // Adaptive symmetry: reduce slices for small layers where detail is invisible
+            const layerSym = band < 20 ? Math.max(4, Math.floor(sym / 2))
+                           : band < 40 ? Math.max(6, Math.floor(sym * 0.75))
+                           : sym;
+            const layerAngleStep = (Math.PI * 2) / layerSym;
 
             // Proper clipping: clip to annular ring
             ctx.save();
@@ -312,10 +337,10 @@ export default function App() {
             ctx.lineWidth = lw * 0.8;
             ctx.stroke();
 
-            // Draw pattern cells
-            for (let i = 0; i < sym; i++) {
+            // Draw pattern cells (with adaptive symmetry)
+            for (let i = 0; i < layerSym; i++) {
                 ctx.save();
-                ctx.rotate(i * angleStep);
+                ctx.rotate(i * layerAngleStep);
 
                 const activeSet = patternSet
                     ? patternSet
@@ -323,7 +348,7 @@ export default function App() {
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
                     const len = uvPoints.length;
                     for (let j = 0; j < len; j++) {
-                        mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, uvBuf[j]);
+                        mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, layerAngleStep, uvBuf[j]);
                     }
                     drawSmoothPath(uvBuf, style, layerRng, lw, len);
                 };
@@ -407,13 +432,21 @@ export default function App() {
     }, []);
 
     // --- Animation Loop ---
+    // Throttle to ~30fps during auto-animation to reduce thermal load
     useEffect(() => {
         let animationFrameId: number;
-        const renderLoop = () => {
+        let lastDrawTime = 0;
+        const MIN_FRAME_MS = 30; // ~33fps cap during animation
+        const renderLoop = (timestamp: number) => {
+            if (autoAnimateRef.current && timestamp - lastDrawTime < MIN_FRAME_MS) {
+                animationFrameId = requestAnimationFrame(renderLoop);
+                return;
+            }
+            lastDrawTime = timestamp;
             draw();
             animationFrameId = requestAnimationFrame(renderLoop);
         };
-        renderLoop();
+        animationFrameId = requestAnimationFrame(renderLoop);
         return () => cancelAnimationFrame(animationFrameId);
     }, [draw]);
 
