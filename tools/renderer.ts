@@ -22,10 +22,38 @@ import chevronPatterns from '../src/patterns/chevron';
 import lotusPatterns from '../src/patterns/lotus';
 import greekkeyPatterns from '../src/patterns/greekkey';
 import tribalPatterns from '../src/patterns/tribal';
+import artDecoPatterns from '../src/patterns/artdeco';
+import japanesePatterns from '../src/patterns/japanese';
+import sacredPatterns from '../src/patterns/sacred';
+import celticPatterns from '../src/patterns/celtic';
+import egyptianPatterns from '../src/patterns/egyptian';
+import mesoamericanPatterns from '../src/patterns/mesoamerican';
+import generativePatterns from '../src/patterns/generative';
+import guillochePatterns from '../src/patterns/guilloche';
+import fractalPatterns from '../src/patterns/fractal';
+import spiralPatterns from '../src/patterns/spirals';
+import harmonographPatterns from '../src/patterns/harmonograph';
+import truchetPatterns from '../src/patterns/truchet';
+import islamicPatterns from '../src/patterns/islamic';
+import opArtPatterns from '../src/patterns/opart';
+import artNouveauPatterns from '../src/patterns/artnouveau';
+import aboriginalPatterns from '../src/patterns/aboriginal';
+import polynesianPatterns from '../src/patterns/polynesian';
+import embroideryPatterns from '../src/patterns/embroidery';
+import mazePatterns from '../src/patterns/maze';
+import flowFieldPatterns from '../src/patterns/flowfield';
+import noiseStrataPatterns from '../src/patterns/noisestrata';
+import organicCellPatterns from '../src/patterns/organiccells';
 
 export const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
-    lotusPatterns, greekkeyPatterns, tribalPatterns,
+    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns,
+    japanesePatterns, sacredPatterns, celticPatterns, egyptianPatterns,
+    mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns,
+    spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns,
+    opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns,
+    embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
+    organicCellPatterns,
 ];
 
 export function getPatternSetByName(name: string): PatternSet | undefined {
@@ -302,6 +330,143 @@ export function savePNG(canvas: Canvas, filePath: string): void {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const buf = canvas.toBuffer('image/png');
     fs.writeFileSync(filePath, buf);
+}
+
+/**
+ * Render a reference strip image for a pattern set.
+ * Each row shows one motif repeating horizontally, all motifs stacked vertically.
+ * This produces a rectangular catalog image suitable for documentation.
+ */
+export function renderStrip(
+    patternSet: PatternSet,
+    cellSize: number = 200,
+    repeats: number = 4,
+    seed: number = 42,
+): Canvas {
+    const rows = patternSet.count;
+    const cols = repeats * 2; // filled + outline alternating
+    const labelH = 24;
+    const headerH = 36;
+    const totalW = cellSize * repeats * 2; // filled block + outline block side by side
+    const totalH = headerH + rows * (cellSize + labelH);
+
+    const canvas = createCanvas(totalW, totalH);
+    const ctx = canvas.getContext('2d') as unknown as CanvasRenderingContext2D;
+
+    // Background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    // Header
+    ctx.fillStyle = '#1A1818';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(patternSet.name, 10, headerH - 10);
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#666';
+    ctx.fillText(`${patternSet.count} motifs — filled (left) / outline (right)`, 10 + ctx.measureText(patternSet.name).width + 20, headerH - 10);
+
+    // Draw separator line under header
+    ctx.strokeStyle = '#DDD';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, headerH);
+    ctx.lineTo(totalW, headerH);
+    ctx.stroke();
+
+    const BG = '#EBE7E0';
+    const FG = '#1A1818';
+    const margin = cellSize * 0.05;
+    const drawW = cellSize - margin * 2;
+    const drawH = cellSize - margin * 2;
+
+    for (let motif = 0; motif < rows; motif++) {
+        const rowY = headerH + motif * (cellSize + labelH);
+
+        // Motif label
+        ctx.fillStyle = '#333';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(`#${motif}`, 4, rowY + cellSize + labelH - 8);
+
+        for (let rep = 0; rep < cols; rep++) {
+            const isFilled = rep < repeats;
+            const filled = isFilled;
+            const colIdx = rep;
+            const cellX = colIdx * cellSize;
+
+            // Cell background
+            ctx.fillStyle = BG;
+            ctx.fillRect(cellX, rowY, cellSize, cellSize);
+
+            // Cell border
+            ctx.strokeStyle = '#CCC';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(cellX, rowY, cellSize, cellSize);
+
+            const rng = mulberry32(seed + motif * 137 + rep * 31);
+            const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
+
+            const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                const pts = uvPoints.map(([u, v]) => ({
+                    x: cellX + margin + u * drawW,
+                    y: rowY + margin + (1 - v) * drawH,
+                }));
+
+                if (style === 'filled' || style === 'opaque-outline') {
+                    ctx.fillStyle = style === 'filled' ? FG : BG;
+                    ctx.beginPath();
+                    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                ctx.strokeStyle = style === 'filled' ? 'rgba(26,24,24,0.9)' : 'rgba(26,24,24,0.6)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+                if (style !== 'line') ctx.closePath();
+                ctx.stroke();
+            };
+
+            patternSet.draw(motif, { drawUV, filled, baseStyle, rng });
+        }
+
+        // Separator between filled and outline blocks
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(repeats * cellSize, rowY);
+        ctx.lineTo(repeats * cellSize, rowY + cellSize);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Row separator
+        if (motif < rows - 1) {
+            ctx.strokeStyle = '#EEE';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, rowY + cellSize + labelH);
+            ctx.lineTo(totalW, rowY + cellSize + labelH);
+            ctx.stroke();
+        }
+    }
+
+    return canvas;
+}
+
+/**
+ * Render strip images for all pattern sets.
+ */
+export function renderAllStrips(outputDir: string, cellSize: number = 200, repeats: number = 4, seed: number = 42): string[] {
+    const files: string[] = [];
+    for (const set of ALL_PATTERN_SETS) {
+        const safeName = set.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().replace(/-+/g, '-');
+        const canvas = renderStrip(set, cellSize, repeats, seed);
+        const fpath = path.join(outputDir, `strip-${safeName}.png`);
+        savePNG(canvas, fpath);
+        files.push(fpath);
+    }
+    return files;
 }
 
 /**

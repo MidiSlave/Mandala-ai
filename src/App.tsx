@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
@@ -12,7 +12,12 @@ const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
     lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns,
     sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns,
-    mesoamericanPatterns, generativePatterns
+    mesoamericanPatterns, generativePatterns, guillochePatterns,
+    fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns,
+    islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns,
+    polynesianPatterns,
+    embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
+    organicCellPatterns
 ];
 
 export default function App() {
@@ -37,7 +42,6 @@ export default function App() {
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
     const wavePhaseRef = useRef(0);
-    const roughnessPhaseRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
 
     // Interaction refs
@@ -50,6 +54,23 @@ export default function App() {
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
 
+    // Offscreen grain canvas (pre-rendered, reused across frames)
+    const grainCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const grainSeedRef = useRef<number>(-1);
+    const grainDimsRef = useRef({ w: 0, h: 0 });
+
+    // Pre-allocated buffers for drawSmoothPath (avoid GC pressure)
+    const smoothBufRef = useRef({
+        ox: new Float64Array(200),
+        oy: new Float64Array(200),
+        px: new Float64Array(200),
+        py: new Float64Array(200),
+    });
+    // Pre-allocated buffer for mapUV point results
+    const uvBufRef = useRef<{ x: number, y: number }[]>(
+        Array.from({ length: 200 }, () => ({ x: 0, y: 0 }))
+    );
+
 
     // --- Drawing Logic ---
     const draw = useCallback(() => {
@@ -61,11 +82,18 @@ export default function App() {
         const width = window.innerWidth;
         const height = window.innerHeight;
 
-        // Ease pointer for smooth reactive bulging
-        const dx = pointerRef.current.x - easedPointerRef.current.x;
-        const dy = pointerRef.current.y - easedPointerRef.current.y;
-        easedPointerRef.current.x += dx * 0.1;
-        easedPointerRef.current.y += dy * 0.1;
+        // Ease pointer for smooth reactive bulging (snap when close to stop redraws)
+        let dx = pointerRef.current.x - easedPointerRef.current.x;
+        let dy = pointerRef.current.y - easedPointerRef.current.y;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            easedPointerRef.current.x = pointerRef.current.x;
+            easedPointerRef.current.y = pointerRef.current.y;
+            dx = 0;
+            dy = 0;
+        } else {
+            easedPointerRef.current.x += dx * 0.1;
+            easedPointerRef.current.y += dy * 0.1;
+        }
 
         const now = performance.now();
         const dt = (now - lastTimeRef.current) / 1000;
@@ -75,7 +103,6 @@ export default function App() {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
             configRef.current.zoom += dt * configRef.current.zoomSpeed;
-            roughnessPhaseRef.current += dt * 0.8;
             isDirtyRef.current = true;
         }
 
@@ -150,21 +177,19 @@ export default function App() {
         }
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
-        const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
+        // Writes directly into target object to avoid allocations
+        // sliceAngle is the angular width of the current symmetry slice
+        const mapUVInto = (u: number, v: number, r1: number, r2: number, layerTwist: number, sliceAngle: number, out: {x: number, y: number}) => {
             const r = r1 + v * (r2 - r1);
-            const a = (u * angleStep) + layerTwist;
-            return { x: r * Math.cos(a), y: r * Math.sin(a) };
+            const a = (u * sliceAngle) + layerTwist;
+            out.x = r * Math.cos(a);
+            out.y = r * Math.sin(a);
         };
+        const uvBuf = uvBufRef.current;
 
         const patternSet = patternSetRef.current;
 
         let layerColor = theme.colors[0]; // updated per-layer
-
-        // Roughness modulation: sine wave adds animated roughness on top of the base setting
-        const roughnessModulation = autoAnimateRef.current
-            ? Math.abs(Math.sin(roughnessPhaseRef.current)) * 3.0
-            : 0;
-        const effectiveRoughness = config.roughness + roughnessModulation;
 
         // Adaptive line width based on layer band thickness
         const getLineWidth = (r1: number, r2: number) => {
@@ -173,41 +198,43 @@ export default function App() {
         };
 
         // Helper: Draw a smooth bezier curve through points
-        const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number) => {
-            if (points.length < 2) return;
+        // Use pre-allocated ref buffers to avoid GC pressure
+        const { ox: _ox, oy: _oy, px: _px, py: _py } = smoothBufRef.current;
+
+        // LOD flag set per-layer: skip second stroke pass for small bands
+        let lowDetail = false;
+
+        const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number, count?: number) => {
+            const n = count ?? points.length;
+            if (n < 2) return;
             const lineWidth = lw ?? 1.5;
+            const rough = config.roughness;
 
-            // Apply consistent roughness to both fill and stroke using same offsets
-            const offsets = points.map(() => ({
-                dx: (rng() - 0.5) * config.roughness,
-                dy: (rng() - 0.5) * config.roughness
-            }));
+            // Compute offsets and perturbed coords into pre-allocated buffers
+            for (let i = 0; i < n; i++) {
+                const odx = (rng() - 0.5) * rough;
+                const ody = (rng() - 0.5) * rough;
+                _ox[i] = odx;
+                _oy[i] = ody;
+                _px[i] = points[i].x + odx;
+                _py[i] = points[i].y + ody;
+            }
 
-            const perturbedPoints = points.map((p, i) => ({
-                x: p.x + offsets[i].dx,
-                y: p.y + offsets[i].dy
-            }));
-
-            const tracePath = (pts: {x: number, y: number}[], close: boolean) => {
+            const traceBuf = (bx: Float64Array, by: Float64Array, len: number, close: boolean) => {
                 ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                if (pts.length === 2) {
-                    ctx.lineTo(pts[1].x, pts[1].y);
+                ctx.moveTo(bx[0], by[0]);
+                if (len === 2) {
+                    ctx.lineTo(bx[1], by[1]);
                 } else {
-                    // Catmull-Rom to Bezier for smooth curves through all points
-                    for (let i = 0; i < pts.length - 1; i++) {
-                        const p0 = pts[Math.max(0, i - 1)];
-                        const p1 = pts[i];
-                        const p2 = pts[Math.min(pts.length - 1, i + 1)];
-                        const p3 = pts[Math.min(pts.length - 1, i + 2)];
-
-                        const tension = 0.3;
-                        const cp1x = p1.x + (p2.x - p0.x) * tension;
-                        const cp1y = p1.y + (p2.y - p0.y) * tension;
-                        const cp2x = p2.x - (p3.x - p1.x) * tension;
-                        const cp2y = p2.y - (p3.y - p1.y) * tension;
-
-                        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+                    for (let i = 0; i < len - 1; i++) {
+                        const i0 = i > 0 ? i - 1 : 0;
+                        const i2 = i + 1 < len ? i + 1 : len - 1;
+                        const i3 = i + 2 < len ? i + 2 : len - 1;
+                        const cp1x = bx[i] + (bx[i2] - bx[i0]) * 0.3;
+                        const cp1y = by[i] + (by[i2] - by[i0]) * 0.3;
+                        const cp2x = bx[i2] - (bx[i3] - bx[i]) * 0.3;
+                        const cp2y = by[i2] - (by[i3] - by[i]) * 0.3;
+                        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx[i2], by[i2]);
                     }
                 }
                 if (close) ctx.closePath();
@@ -215,21 +242,25 @@ export default function App() {
 
             if (style === 'filled' || style === 'opaque-outline') {
                 ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
-                tracePath(perturbedPoints, true);
+                traceBuf(_px, _py, n, true);
                 ctx.fill();
             }
 
             ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
             ctx.lineWidth = lineWidth;
 
-            // Single clean stroke pass (second pass with slight offset for hand-drawn feel)
-            const passes = style === 'filled' ? 1 : 2;
-            for (let pass = 0; pass < passes; pass++) {
-                const passPoints = pass === 0 ? perturbedPoints : perturbedPoints.map((p, i) => ({
-                    x: p.x + offsets[i].dx * 0.3,
-                    y: p.y + offsets[i].dy * 0.3
-                }));
-                tracePath(passPoints, style !== 'line');
+            // First stroke pass
+            traceBuf(_px, _py, n, style !== 'line');
+            ctx.stroke();
+
+            // Second pass with slight offset for hand-drawn feel (non-filled only)
+            // Skip on small layers — the double-stroke is invisible at that scale
+            if (style !== 'filled' && !lowDetail) {
+                for (let i = 0; i < n; i++) {
+                    _px[i] = points[i].x + _ox[i] * 1.3;
+                    _py[i] = points[i].y + _oy[i] * 1.3;
+                }
+                traceBuf(_px, _py, n, style !== 'line');
                 ctx.stroke();
             }
         };
@@ -249,6 +280,7 @@ export default function App() {
             let r2 = Math.max(0, (l + 1 + offset) * config.spread);
 
             if (r2 <= 0) continue;
+            if (r1 > maxR) continue; // Skip layers entirely outside viewport
 
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
@@ -260,7 +292,27 @@ export default function App() {
             r2 += bulge;
             if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
+            const band = r2 - r1;
             const lw = getLineWidth(r1, r2);
+
+            // LOD: skip patterns entirely for very thin bands (< 8px) — just draw ring
+            if (band < 8) {
+                ctx.beginPath();
+                ctx.arc(0, 0, r2, 0, Math.PI * 2);
+                ctx.strokeStyle = theme.strokeLight;
+                ctx.lineWidth = lw * 0.8;
+                ctx.stroke();
+                continue;
+            }
+
+            // LOD: reduce detail for small bands (< 30px)
+            lowDetail = band < 30;
+
+            // Adaptive symmetry: reduce slices for small layers where detail is invisible
+            const layerSym = band < 20 ? Math.max(4, Math.floor(sym / 2))
+                           : band < 40 ? Math.max(6, Math.floor(sym * 0.75))
+                           : sym;
+            const layerAngleStep = (Math.PI * 2) / layerSym;
 
             // Proper clipping: clip to annular ring
             ctx.save();
@@ -276,7 +328,9 @@ export default function App() {
             ctx.fill();
 
             // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
+            // spinVariance adds per-layer speed variation (seeded so it's stable)
+            const layerSpinFactor = 1 + (mulberry32(config.seed + absL * 777)() - 0.5) * config.spinVariance;
+            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1)) * layerSpinFactor;
 
             // Draw separator ring at outer boundary
             ctx.beginPath();
@@ -285,17 +339,20 @@ export default function App() {
             ctx.lineWidth = lw * 0.8;
             ctx.stroke();
 
-            // Draw pattern cells
-            for (let i = 0; i < sym; i++) {
+            // Draw pattern cells (with adaptive symmetry)
+            for (let i = 0; i < layerSym; i++) {
                 ctx.save();
-                ctx.rotate(i * angleStep);
+                ctx.rotate(i * layerAngleStep);
 
                 const activeSet = patternSet
                     ? patternSet
                     : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                    const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
-                    drawSmoothPath(pts, style, layerRng, lw);
+                    const len = uvPoints.length;
+                    for (let j = 0; j < len; j++) {
+                        mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, layerAngleStep, uvBuf[j]);
+                    }
+                    drawSmoothPath(uvBuf, style, layerRng, lw, len);
                 };
                 const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
                 activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
@@ -345,24 +402,53 @@ export default function App() {
 
         ctx.restore();
 
-        // Add subtle grain overlay (seeded for stability)
-        const grainRng = mulberry32(Math.floor(now * 0.001));
-        ctx.fillStyle = theme.grain;
-        for(let i = 0; i < 1200; i++) {
-            ctx.fillRect(grainRng() * width, grainRng() * height, 1.5, 1.5);
+        // Add subtle grain overlay using offscreen canvas (pre-rendered)
+        const grainSeed = Math.floor(now * 0.001);
+        const grainDims = grainDimsRef.current;
+        const needsGrainResize = grainDims.w !== width || grainDims.h !== height;
+        if (!grainCanvasRef.current || grainSeedRef.current !== grainSeed || needsGrainResize) {
+            if (!grainCanvasRef.current) {
+                grainCanvasRef.current = document.createElement('canvas');
+            }
+            const gc = grainCanvasRef.current;
+            if (needsGrainResize) {
+                gc.width = width;
+                gc.height = height;
+                grainDims.w = width;
+                grainDims.h = height;
+            }
+            const gctx = gc.getContext('2d');
+            if (gctx) {
+                gctx.clearRect(0, 0, width, height);
+                gctx.fillStyle = theme.grain;
+                const grainRng = mulberry32(grainSeed);
+                for (let i = 0; i < 800; i++) {
+                    gctx.fillRect(grainRng() * width, grainRng() * height, 1.5, 1.5);
+                }
+            }
+            grainSeedRef.current = grainSeed;
         }
+        ctx.drawImage(grainCanvasRef.current, 0, 0);
 
         isDirtyRef.current = false;
     }, []);
 
     // --- Animation Loop ---
+    // Throttle to ~30fps during auto-animation to reduce thermal load
     useEffect(() => {
         let animationFrameId: number;
-        const renderLoop = () => {
+        let lastDrawTime = 0;
+        const MIN_FRAME_MS = 30; // ~33fps cap during animation
+        const renderLoop = (timestamp: number) => {
+            if (autoAnimateRef.current && timestamp - lastDrawTime < MIN_FRAME_MS) {
+                animationFrameId = requestAnimationFrame(renderLoop);
+                return;
+            }
+            lastDrawTime = timestamp;
             draw();
             animationFrameId = requestAnimationFrame(renderLoop);
         };
-        renderLoop();
+        animationFrameId = requestAnimationFrame(renderLoop);
         return () => cancelAnimationFrame(animationFrameId);
     }, [draw]);
 
