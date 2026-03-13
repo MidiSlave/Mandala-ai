@@ -1,5 +1,31 @@
 import type { PatternSet, PatternContext } from './types';
 
+// Generic maze generator using recursive backtracking on an adjacency graph
+// cells: number of cells, neighbors: adjacency list, returns set of open wall keys "a-b"
+function generateMaze(numCells: number, neighbors: number[][], rng: () => number): Set<string> {
+    const visited = new Uint8Array(numCells);
+    const open = new Set<string>();
+    const stack: number[] = [];
+    const start = Math.floor(rng() * numCells);
+    visited[start] = 1;
+    stack.push(start);
+
+    while (stack.length > 0) {
+        const cur = stack[stack.length - 1];
+        const unvisited: number[] = [];
+        for (const nb of neighbors[cur]) {
+            if (!visited[nb]) unvisited.push(nb);
+        }
+        if (unvisited.length === 0) { stack.pop(); continue; }
+        const next = unvisited[Math.floor(rng() * unvisited.length)];
+        const key = cur < next ? `${cur}-${next}` : `${next}-${cur}`;
+        open.add(key);
+        visited[next] = 1;
+        stack.push(next);
+    }
+    return open;
+}
+
 const mazePatterns: PatternSet = {
     name: 'Maze / Labyrinth',
     count: 6,
@@ -7,242 +33,420 @@ const mazePatterns: PatternSet = {
         const r = rng ?? (() => Math.random());
 
         switch (type) {
-            case 0: { // Theta maze — circular/radial grid maze via recursive backtracking
-                const rings = 3 + Math.floor(r() * 2);
-                const cols = 4 + Math.floor(r() * 3);
-                const ringH = 1.0 / rings;
-                const colW = 1.0 / cols;
+            case 0: { // Delta (triangular) maze — triangular tessellation
+                const rows = 4 + Math.floor(r() * 2);
+                const cols = 5 + Math.floor(r() * 3);
 
-                // Initialize grid: walls[ring][col] = { right: bool, bottom: bool }
-                const walls: { right: boolean; bottom: boolean }[][] = [];
-                const visited: boolean[][] = [];
-                for (let ri = 0; ri < rings; ri++) {
-                    walls[ri] = [];
-                    visited[ri] = [];
-                    for (let ci = 0; ci < cols; ci++) {
-                        walls[ri][ci] = { right: true, bottom: true };
-                        visited[ri][ci] = false;
+                // Build triangular grid: each cell is a triangle
+                // Row r has (2*cols) triangles, alternating up/down
+                const totalCells = rows * cols * 2;
+                const cellIdx = (row: number, col: number, up: boolean) => row * cols * 2 + col * 2 + (up ? 0 : 1);
+
+                // Compute triangle vertices in UV space
+                const triVerts = (row: number, col: number, up: boolean): [number, number][] => {
+                    const rowH = 1.0 / rows;
+                    const colW = 1.0 / cols;
+                    const x0 = col * colW;
+                    const y0 = row * rowH;
+                    if (up) {
+                        return [[x0, y0 + rowH], [x0 + colW, y0 + rowH], [x0 + colW * 0.5, y0]];
+                    } else {
+                        return [[x0, y0], [x0 + colW, y0], [x0 + colW * 0.5, y0 + rowH]];
                     }
-                }
+                };
 
-                // Recursive backtracking maze generation
-                const stack: [number, number][] = [];
-                const startR = Math.floor(r() * rings);
-                const startC = Math.floor(r() * cols);
-                visited[startR][startC] = true;
-                stack.push([startR, startC]);
-
-                while (stack.length > 0) {
-                    const [cr, cc] = stack[stack.length - 1];
-                    const neighbors: [number, number, string][] = [];
-                    if (cr > 0 && !visited[cr - 1][cc]) neighbors.push([cr - 1, cc, 'up']);
-                    if (cr < rings - 1 && !visited[cr + 1][cc]) neighbors.push([cr + 1, cc, 'down']);
-                    if (cc > 0 && !visited[cr][cc - 1]) neighbors.push([cr, cc - 1, 'left']);
-                    if (cc < cols - 1 && !visited[cr][cc + 1]) neighbors.push([cr, cc + 1, 'right']);
-
-                    if (neighbors.length === 0) {
-                        stack.pop();
-                        continue;
-                    }
-                    const [nr, nc, dir] = neighbors[Math.floor(r() * neighbors.length)];
-                    if (dir === 'up') walls[cr - 1][cc].bottom = false;
-                    else if (dir === 'down') walls[cr][cc].bottom = false;
-                    else if (dir === 'left') walls[cr][cc - 1].right = false;
-                    else if (dir === 'right') walls[cr][cc].right = false;
-                    visited[nr][nc] = true;
-                    stack.push([nr, nc]);
-                }
-
-                // Draw walls
-                for (let ri = 0; ri < rings; ri++) {
-                    for (let ci = 0; ci < cols; ci++) {
-                        const u = ci * colW;
-                        const v = ri * ringH;
-                        if (walls[ri][ci].right && ci < cols - 1) {
-                            drawUV([[u + colW, v], [u + colW, v + ringH]], 'line');
+                // Build adjacency: up-tri shares edges with down-tri neighbors
+                const neighbors: number[][] = Array.from({ length: totalCells }, () => []);
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        const upIdx = cellIdx(row, col, true);
+                        const downIdx = cellIdx(row, col, false);
+                        // Up and down in same cell share bottom/top edge
+                        neighbors[upIdx].push(downIdx);
+                        neighbors[downIdx].push(upIdx);
+                        // Up-tri's left edge neighbors left cell's down-tri
+                        if (col > 0) {
+                            neighbors[upIdx].push(cellIdx(row, col - 1, false));
+                            neighbors[cellIdx(row, col - 1, false)].push(upIdx);
                         }
-                        if (walls[ri][ci].bottom && ri < rings - 1) {
-                            drawUV([[u, v + ringH], [u + colW, v + ringH]], 'line');
+                        // Down-tri's right edge neighbors right cell's up-tri
+                        if (col < cols - 1) {
+                            neighbors[downIdx].push(cellIdx(row, col + 1, true));
+                            neighbors[cellIdx(row, col + 1, true)].push(downIdx);
+                        }
+                        // Up-tri top edge neighbors row above's down-tri
+                        if (row > 0) {
+                            neighbors[upIdx].push(cellIdx(row - 1, col, false));
+                            neighbors[cellIdx(row - 1, col, false)].push(upIdx);
+                        }
+                        // Down-tri bottom edge neighbors row below's up-tri
+                        if (row < rows - 1) {
+                            neighbors[downIdx].push(cellIdx(row + 1, col, true));
+                            neighbors[cellIdx(row + 1, col, true)].push(downIdx);
                         }
                     }
                 }
+
+                // Deduplicate adjacency
+                for (let i = 0; i < totalCells; i++) {
+                    neighbors[i] = [...new Set(neighbors[i])];
+                }
+
+                const open = generateMaze(totalCells, neighbors, r);
+
+                // Draw walls: for each pair of adjacent cells, if not open, draw shared edge
+                const drawn = new Set<string>();
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        for (const up of [true, false]) {
+                            const idx = cellIdx(row, col, up);
+                            const verts = triVerts(row, col, up);
+                            for (const nb of neighbors[idx]) {
+                                const key = idx < nb ? `${idx}-${nb}` : `${nb}-${idx}`;
+                                if (drawn.has(key)) continue;
+                                drawn.add(key);
+                                if (!open.has(key)) {
+                                    // Find shared edge (2 closest vertices)
+                                    // For simplicity, draw the cell outline edges that are walls
+                                    // Each triangle has 3 edges; determine which edge is shared
+                                    const nbRow = Math.floor(nb / (cols * 2));
+                                    const nbRem = nb % (cols * 2);
+                                    const nbCol = Math.floor(nbRem / 2);
+                                    const nbUp = nbRem % 2 === 0;
+                                    const nbVerts = triVerts(nbRow, nbCol, nbUp);
+
+                                    // Find the two shared vertices (closest pair matching)
+                                    const shared: [number, number][] = [];
+                                    for (const v1 of verts) {
+                                        for (const v2 of nbVerts) {
+                                            if (Math.abs(v1[0] - v2[0]) < 0.001 && Math.abs(v1[1] - v2[1]) < 0.001) {
+                                                shared.push(v1);
+                                            }
+                                        }
+                                    }
+                                    if (shared.length >= 2) {
+                                        drawUV([shared[0], shared[1]], 'line');
+                                    }
+                                }
+                            }
+
+                            // Fill some cells
+                            if (filled && r() > 0.8) {
+                                drawUV(verts, 'filled');
+                            }
+                        }
+                    }
+                }
+
                 // Outer border
                 drawUV([[0, 0], [1, 0]], 'line');
                 drawUV([[0, 1], [1, 1]], 'line');
                 drawUV([[0, 0], [0, 1]], 'line');
                 drawUV([[1, 0], [1, 1]], 'line');
+                break;
+            }
 
-                // Fill some dead-end cells when filled
-                if (filled) {
-                    for (let ri = 0; ri < rings; ri++) {
-                        for (let ci = 0; ci < cols; ci++) {
-                            let openWalls = 0;
-                            if (ri > 0 && !walls[ri - 1][ci].bottom) openWalls++;
-                            if (ri < rings - 1 && !walls[ri][ci].bottom) openWalls++;
-                            if (ci > 0 && !walls[ri][ci - 1].right) openWalls++;
-                            if (ci < cols - 1 && !walls[ri][ci].right) openWalls++;
-                            if (openWalls === 1) {
-                                const u = ci * colW;
-                                const v = ri * ringH;
-                                const inset = 0.15;
-                                drawUV([
-                                    [u + colW * inset, v + ringH * inset],
-                                    [u + colW * (1 - inset), v + ringH * inset],
-                                    [u + colW * (1 - inset), v + ringH * (1 - inset)],
-                                    [u + colW * inset, v + ringH * (1 - inset)]
-                                ], 'filled');
+            case 1: { // Sigma (hexagonal) maze — honeycomb tessellation
+                const hexRows = 3 + Math.floor(r() * 2);
+                const hexCols = 3 + Math.floor(r() * 2);
+                const cellW = 1.0 / (hexCols + 0.5);
+                const cellH = 1.0 / hexRows;
+                const hexR = Math.min(cellW, cellH) * 0.48;
+
+                const hexCenter = (row: number, col: number): [number, number] => {
+                    const offset = row % 2 === 0 ? 0 : cellW * 0.5;
+                    return [cellW * 0.5 + col * cellW + offset, cellH * 0.5 + row * cellH];
+                };
+
+                const hexVertex = (cx: number, cy: number, i: number): [number, number] => {
+                    const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
+                    return [cx + Math.cos(a) * hexR, cy + Math.sin(a) * hexR];
+                };
+
+                const idx = (row: number, col: number) => row * hexCols + col;
+                const totalCells = hexRows * hexCols;
+                const neighbors: number[][] = Array.from({ length: totalCells }, () => []);
+
+                // Build hex adjacency
+                for (let row = 0; row < hexRows; row++) {
+                    for (let col = 0; col < hexCols; col++) {
+                        const i = idx(row, col);
+                        // Right neighbor
+                        if (col < hexCols - 1) {
+                            neighbors[i].push(idx(row, col + 1));
+                            neighbors[idx(row, col + 1)].push(i);
+                        }
+                        // Diagonal neighbors depend on even/odd row
+                        const offset = row % 2 === 0 ? -1 : 0;
+                        if (row < hexRows - 1) {
+                            // Bottom-left
+                            const blCol = col + offset;
+                            if (blCol >= 0 && blCol < hexCols) {
+                                neighbors[i].push(idx(row + 1, blCol));
+                                neighbors[idx(row + 1, blCol)].push(i);
+                            }
+                            // Bottom-right
+                            const brCol = col + offset + 1;
+                            if (brCol >= 0 && brCol < hexCols) {
+                                neighbors[i].push(idx(row + 1, brCol));
+                                neighbors[idx(row + 1, brCol)].push(i);
                             }
                         }
                     }
                 }
-                break;
-            }
 
-            case 1: { // Recursive division maze
-                const drawDivision = (u0: number, v0: number, u1: number, v1: number, depth: number) => {
-                    const w = u1 - u0;
-                    const h = v1 - v0;
-                    if (depth <= 0 || w < 0.08 || h < 0.08) return;
-
-                    if (w > h) {
-                        // Vertical wall
-                        const wallU = u0 + w * (0.3 + r() * 0.4);
-                        const gapV = v0 + h * (0.1 + r() * 0.8);
-                        const gapSize = h * 0.15;
-                        drawUV([[wallU, v0], [wallU, Math.max(v0, gapV - gapSize)]], 'line');
-                        drawUV([[wallU, Math.min(v1, gapV + gapSize)], [wallU, v1]], 'line');
-                        drawDivision(u0, v0, wallU, v1, depth - 1);
-                        drawDivision(wallU, v0, u1, v1, depth - 1);
-                    } else {
-                        // Horizontal wall
-                        const wallV = v0 + h * (0.3 + r() * 0.4);
-                        const gapU = u0 + w * (0.1 + r() * 0.8);
-                        const gapSize = w * 0.15;
-                        drawUV([[u0, wallV], [Math.max(u0, gapU - gapSize), wallV]], 'line');
-                        drawUV([[Math.min(u1, gapU + gapSize), wallV], [u1, wallV]], 'line');
-                        drawDivision(u0, v0, u1, wallV, depth - 1);
-                        drawDivision(u0, wallV, u1, v1, depth - 1);
-                    }
-                };
-
-                const depth = 3 + Math.floor(r() * 2);
-                drawDivision(0, 0, 1, 1, depth);
-                // Border
-                drawUV([[0, 0], [1, 0], [1, 1], [0, 1]], filled ? baseStyle : 'outline');
-                break;
-            }
-
-            case 2: { // Classical labyrinth path — unicursal winding
-                const circuits = 3 + Math.floor(r() * 3);
-                // Draw concentric circuit arcs with specific gap pattern
-                const circuitOrder = [2, 0, 3, 1]; // traversal order (simplified)
-                const gapSide = r() > 0.5;
-
-                for (let i = 0; i < circuits; i++) {
-                    const v = (i + 0.5) / circuits;
-                    const gapU = gapSide ? 0.85 + r() * 0.1 : 0.05 + r() * 0.1;
-                    const gapW = 0.08;
-
-                    // Draw arc with gap
-                    if (gapU > 0.15) {
-                        const pts1: [number, number][] = [];
-                        const steps = Math.max(4, Math.floor(gapU * 12));
-                        for (let s = 0; s <= steps; s++) {
-                            pts1.push([s / steps * (gapU - gapW), v]);
-                        }
-                        drawUV(pts1, 'line');
-                    }
-                    if (gapU < 0.85) {
-                        const pts2: [number, number][] = [];
-                        const start = gapU + gapW;
-                        const steps = Math.max(4, Math.floor((1 - start) * 12));
-                        for (let s = 0; s <= steps; s++) {
-                            pts2.push([start + s / steps * (1 - start), v]);
-                        }
-                        drawUV(pts2, 'line');
-                    }
-
-                    // Radial connectors at gaps
-                    if (i < circuits - 1) {
-                        const nextV = (i + 1.5) / circuits;
-                        const connU = gapSide ? gapU - gapW * 0.5 : gapU + gapW * 0.5;
-                        drawUV([[connU, v], [connU, nextV]], 'line');
-                    }
+                for (let i = 0; i < totalCells; i++) {
+                    neighbors[i] = [...new Set(neighbors[i])];
                 }
 
-                // Fill between paths in filled mode
-                if (filled) {
-                    for (let i = 0; i < circuits - 1; i += 2) {
-                        const v0 = (i + 0.5) / circuits;
-                        const v1 = (i + 1.5) / circuits;
-                        drawUV([
-                            [0.1, v0], [0.9, v0], [0.9, v1], [0.1, v1]
-                        ], 'filled');
+                const open = generateMaze(totalCells, neighbors, r);
+
+                // Draw hex outlines with gaps for open passages
+                for (let row = 0; row < hexRows; row++) {
+                    for (let col = 0; col < hexCols; col++) {
+                        const [cx, cy] = hexCenter(row, col);
+                        const i = idx(row, col);
+
+                        // Draw each of 6 hex edges if wall is closed
+                        for (let e = 0; e < 6; e++) {
+                            const v1 = hexVertex(cx, cy, e);
+                            const v2 = hexVertex(cx, cy, (e + 1) % 6);
+
+                            // Determine which neighbor shares this edge
+                            // Edge directions: 0=NE, 1=E, 2=SE, 3=SW, 4=W, 5=NW
+                            let nbIdx = -1;
+                            const offset = row % 2 === 0 ? -1 : 0;
+                            if (e === 1 && col < hexCols - 1) nbIdx = idx(row, col + 1);
+                            else if (e === 4 && col > 0) nbIdx = idx(row, col - 1);
+                            else if (e === 0 && row > 0) {
+                                const c = col + offset + 1;
+                                if (c >= 0 && c < hexCols) nbIdx = idx(row - 1, c);
+                            } else if (e === 5 && row > 0) {
+                                const c = col + offset;
+                                if (c >= 0 && c < hexCols) nbIdx = idx(row - 1, c);
+                            } else if (e === 2 && row < hexRows - 1) {
+                                const c = col + offset + 1;
+                                if (c >= 0 && c < hexCols) nbIdx = idx(row + 1, c);
+                            } else if (e === 3 && row < hexRows - 1) {
+                                const c = col + offset;
+                                if (c >= 0 && c < hexCols) nbIdx = idx(row + 1, c);
+                            }
+
+                            if (nbIdx >= 0) {
+                                const key = i < nbIdx ? `${i}-${nbIdx}` : `${nbIdx}-${i}`;
+                                if (open.has(key)) continue; // passage open, skip wall
+                            }
+
+                            // Clamp to UV bounds
+                            const cv1: [number, number] = [Math.min(1, Math.max(0, v1[0])), Math.min(1, Math.max(0, v1[1]))];
+                            const cv2: [number, number] = [Math.min(1, Math.max(0, v2[0])), Math.min(1, Math.max(0, v2[1]))];
+                            drawUV([cv1, cv2], 'line');
+                        }
+
+                        // Fill center of some hex cells
+                        if (filled && r() > 0.7) {
+                            const fillR = hexR * 0.4;
+                            const pts: [number, number][] = [];
+                            for (let j = 0; j <= 6; j++) {
+                                const a = (j / 6) * Math.PI * 2 - Math.PI / 6;
+                                pts.push([
+                                    Math.min(1, Math.max(0, cx + Math.cos(a) * fillR)),
+                                    Math.min(1, Math.max(0, cy + Math.sin(a) * fillR))
+                                ]);
+                            }
+                            drawUV(pts, 'filled');
+                        }
                     }
                 }
                 break;
             }
 
-            case 3: { // Binary tree maze — diagonal bias
-                const gridW = 5 + Math.floor(r() * 3);
+            case 2: { // Upsilon (octagon + square) maze
+                const gridSize = 3 + Math.floor(r() * 2);
+                const cellW = 1.0 / gridSize;
+                const inset = cellW * 0.29; // octagon corner cut
+
+                // Each grid position has an octagon; squares fill the gaps at corners
+                // Total cells: gridSize*gridSize octagons + (gridSize-1)*(gridSize-1) squares
+                const numOct = gridSize * gridSize;
+                const numSq = (gridSize - 1) * (gridSize - 1);
+                const totalCells = numOct + numSq;
+                const neighbors: number[][] = Array.from({ length: totalCells }, () => []);
+
+                const octIdx = (row: number, col: number) => row * gridSize + col;
+                const sqIdx = (row: number, col: number) => numOct + row * (gridSize - 1) + col;
+
+                // Build adjacency
+                for (let row = 0; row < gridSize; row++) {
+                    for (let col = 0; col < gridSize; col++) {
+                        const oi = octIdx(row, col);
+                        // Right octagon neighbor
+                        if (col < gridSize - 1) {
+                            neighbors[oi].push(octIdx(row, col + 1));
+                            neighbors[octIdx(row, col + 1)].push(oi);
+                        }
+                        // Bottom octagon neighbor
+                        if (row < gridSize - 1) {
+                            neighbors[oi].push(octIdx(row + 1, col));
+                            neighbors[octIdx(row + 1, col)].push(oi);
+                        }
+                        // Diagonal squares: octagon connects to 4 adjacent small squares
+                        if (row < gridSize - 1 && col < gridSize - 1) {
+                            const si = sqIdx(row, col);
+                            neighbors[oi].push(si);
+                            neighbors[si].push(oi);
+                            neighbors[octIdx(row, col + 1)].push(si);
+                            neighbors[si].push(octIdx(row, col + 1));
+                            neighbors[octIdx(row + 1, col)].push(si);
+                            neighbors[si].push(octIdx(row + 1, col));
+                            neighbors[octIdx(row + 1, col + 1)].push(si);
+                            neighbors[si].push(octIdx(row + 1, col + 1));
+                        }
+                    }
+                }
+
+                for (let i = 0; i < totalCells; i++) {
+                    neighbors[i] = [...new Set(neighbors[i])];
+                }
+
+                const open = generateMaze(totalCells, neighbors, r);
+
+                // Draw octagons
+                for (let row = 0; row < gridSize; row++) {
+                    for (let col = 0; col < gridSize; col++) {
+                        const cx = (col + 0.5) * cellW;
+                        const cy = (row + 0.5) * cellW;
+                        const hw = cellW * 0.5;
+                        const oi = octIdx(row, col);
+
+                        // 8 vertices of octagon (top-left corner clipped)
+                        const octVerts: [number, number][] = [
+                            [cx - hw + inset, cy - hw],       // top edge left
+                            [cx + hw - inset, cy - hw],       // top edge right
+                            [cx + hw, cy - hw + inset],       // right edge top
+                            [cx + hw, cy + hw - inset],       // right edge bottom
+                            [cx + hw - inset, cy + hw],       // bottom edge right
+                            [cx - hw + inset, cy + hw],       // bottom edge left
+                            [cx - hw, cy + hw - inset],       // left edge bottom
+                            [cx - hw, cy - hw + inset],       // left edge top
+                        ];
+
+                        // Draw each octagon edge as wall if no passage
+                        // Edge 0(top): neighbor is octagon above
+                        // Edge 1(TR corner): neighbor is square at (row-1, col) if exists
+                        // Edge 2(right): neighbor is octagon right
+                        // Edge 3(BR corner): neighbor is square at (row, col)
+                        // Edge 4(bottom): neighbor is octagon below
+                        // Edge 5(BL corner): neighbor is square at (row, col-1)
+                        // Edge 6(left): neighbor is octagon left
+                        // Edge 7(TL corner): neighbor is square at (row-1, col-1)
+                        const edgeNeighbors = [
+                            row > 0 ? octIdx(row - 1, col) : -1,
+                            row > 0 && col < gridSize - 1 ? sqIdx(row - 1, col) : -1,
+                            col < gridSize - 1 ? octIdx(row, col + 1) : -1,
+                            row < gridSize - 1 && col < gridSize - 1 ? sqIdx(row, col) : -1,
+                            row < gridSize - 1 ? octIdx(row + 1, col) : -1,
+                            row < gridSize - 1 && col > 0 ? sqIdx(row, col - 1) : -1,
+                            col > 0 ? octIdx(row, col - 1) : -1,
+                            row > 0 && col > 0 ? sqIdx(row - 1, col - 1) : -1,
+                        ];
+
+                        for (let e = 0; e < 8; e++) {
+                            const nb = edgeNeighbors[e];
+                            if (nb >= 0) {
+                                const key = oi < nb ? `${oi}-${nb}` : `${nb}-${oi}`;
+                                if (open.has(key)) continue;
+                            }
+                            const v1 = octVerts[e];
+                            const v2 = octVerts[(e + 1) % 8];
+                            const c1: [number, number] = [Math.min(1, Math.max(0, v1[0])), Math.min(1, Math.max(0, v1[1]))];
+                            const c2: [number, number] = [Math.min(1, Math.max(0, v2[0])), Math.min(1, Math.max(0, v2[1]))];
+                            drawUV([c1, c2], 'line');
+                        }
+
+                        if (filled && r() > 0.75) {
+                            const fillPts = octVerts.map(([u, v]) => [
+                                Math.min(1, Math.max(0, cx + (u - cx) * 0.5)),
+                                Math.min(1, Math.max(0, cy + (v - cy) * 0.5))
+                            ] as [number, number]);
+                            drawUV(fillPts, 'filled');
+                        }
+                    }
+                }
+                break;
+            }
+
+            case 3: { // Diagonal / zeta maze — orthogonal grid with diagonal passages
+                const gridW = 4 + Math.floor(r() * 3);
                 const gridH = 4 + Math.floor(r() * 2);
                 const cellW = 1.0 / gridW;
                 const cellH = 1.0 / gridH;
+                const totalCells = gridW * gridH;
+                const idx = (row: number, col: number) => row * gridW + col;
+                const neighbors: number[][] = Array.from({ length: totalCells }, () => []);
 
+                // Build adjacency: 4 cardinal + 4 diagonal
                 for (let row = 0; row < gridH; row++) {
                     for (let col = 0; col < gridW; col++) {
-                        const u = col * cellW;
-                        const v = row * cellH;
-                        // Binary tree: randomly carve north or west
-                        const canNorth = row > 0;
-                        const canWest = col > 0;
-                        if (canNorth && canWest) {
-                            if (r() > 0.5) {
-                                // Carve north — draw west wall
-                                drawUV([[u, v], [u, v + cellH]], 'line');
-                            } else {
-                                // Carve west — draw north wall
-                                drawUV([[u, v], [u + cellW, v]], 'line');
-                            }
-                        } else if (canNorth) {
-                            // First column — always carve north, keep west wall
-                            drawUV([[u, v], [u, v + cellH]], 'line');
-                        } else if (canWest) {
-                            // First row — always carve west, keep north wall
-                            drawUV([[u, v], [u + cellW, v]], 'line');
+                        const i = idx(row, col);
+                        // Cardinal
+                        if (col < gridW - 1) { neighbors[i].push(idx(row, col + 1)); neighbors[idx(row, col + 1)].push(i); }
+                        if (row < gridH - 1) { neighbors[i].push(idx(row + 1, col)); neighbors[idx(row + 1, col)].push(i); }
+                        // Diagonal
+                        if (row < gridH - 1 && col < gridW - 1) {
+                            neighbors[i].push(idx(row + 1, col + 1));
+                            neighbors[idx(row + 1, col + 1)].push(i);
+                        }
+                        if (row < gridH - 1 && col > 0) {
+                            neighbors[i].push(idx(row + 1, col - 1));
+                            neighbors[idx(row + 1, col - 1)].push(i);
                         }
                     }
                 }
-                // Draw outer border
-                drawUV([[0, 0], [1, 0]], 'line');
-                drawUV([[1, 0], [1, 1]], 'line');
-                drawUV([[0, 1], [1, 1]], 'line');
-                drawUV([[0, 0], [0, 1]], 'line');
 
-                // Accent fill in cells
-                if (filled) {
-                    for (let row = 0; row < gridH; row++) {
-                        for (let col = 0; col < gridW; col++) {
-                            if (r() > 0.75) {
-                                const u = col * cellW;
-                                const v = row * cellH;
-                                const inset = 0.2;
-                                drawUV([
-                                    [u + cellW * inset, v + cellH * inset],
-                                    [u + cellW * (1 - inset), v + cellH * inset],
-                                    [u + cellW * (1 - inset), v + cellH * (1 - inset)],
-                                    [u + cellW * inset, v + cellH * (1 - inset)]
-                                ], 'filled');
-                            }
+                for (let i = 0; i < totalCells; i++) {
+                    neighbors[i] = [...new Set(neighbors[i])];
+                }
+
+                const open = generateMaze(totalCells, neighbors, r);
+
+                // Draw open passages as paths from cell center to cell center
+                for (let row = 0; row < gridH; row++) {
+                    for (let col = 0; col < gridW; col++) {
+                        const i = idx(row, col);
+                        const cx = (col + 0.5) * cellW;
+                        const cy = (row + 0.5) * cellH;
+
+                        for (const nb of neighbors[i]) {
+                            if (nb <= i) continue; // draw each edge once
+                            const key = `${i}-${nb}`;
+                            if (!open.has(key)) continue;
+                            const nbRow = Math.floor(nb / gridW);
+                            const nbCol = nb % gridW;
+                            const ncx = (nbCol + 0.5) * cellW;
+                            const ncy = (nbRow + 0.5) * cellH;
+                            drawUV([[cx, cy], [ncx, ncy]], 'line');
                         }
+
+                        // Node dot at cell center
+                        const dotR = 0.01;
+                        const dotPts: [number, number][] = [];
+                        for (let j = 0; j <= 6; j++) {
+                            const a = (j / 6) * Math.PI * 2;
+                            dotPts.push([cx + Math.cos(a) * dotR, cy + Math.sin(a) * dotR]);
+                        }
+                        drawUV(dotPts, filled ? 'filled' : 'outline');
                     }
                 }
+
+                // Outer border
+                drawUV([[0, 0], [1, 0], [1, 1], [0, 1]], 'outline');
                 break;
             }
 
-            case 4: { // Hilbert curve — space-filling fractal path
+            case 4: { // Hilbert curve maze — space-filling fractal path
                 const pts: [number, number][] = [];
-                const order = 2 + Math.floor(r() * 2); // 2-3
+                const order = 2 + Math.floor(r() * 2);
 
                 const hilbert = (
                     x: number, y: number,
@@ -252,10 +456,6 @@ const mazePatterns: PatternSet = {
                 ) => {
                     const w = Math.abs(ax + ay);
                     const h = Math.abs(bx + by);
-                    const dax = ax > 0 ? 1 : ax < 0 ? -1 : 0;
-                    const day = ay > 0 ? 1 : ay < 0 ? -1 : 0;
-                    const dbx = bx > 0 ? 1 : bx < 0 ? -1 : 0;
-                    const dby = by > 0 ? 1 : by < 0 ? -1 : 0;
 
                     if (depth <= 0 || (w <= 1 && h <= 1)) {
                         const size = 1 << order;
@@ -289,58 +489,63 @@ const mazePatterns: PatternSet = {
 
                 const size = 1 << order;
                 hilbert(0, 0, size, 0, 0, size, order);
+
+                // Draw as connected path
                 drawUV(pts, filled ? baseStyle : 'line');
+
+                // Draw waypoint dots at corners in filled mode
+                if (filled) {
+                    for (let i = 0; i < pts.length; i += Math.floor(pts.length / 8)) {
+                        const p = pts[i];
+                        const dr = 0.012;
+                        const dotPts: [number, number][] = [];
+                        for (let j = 0; j <= 6; j++) {
+                            const a = (j / 6) * Math.PI * 2;
+                            dotPts.push([p[0] + Math.cos(a) * dr, p[1] + Math.sin(a) * dr]);
+                        }
+                        drawUV(dotPts, 'filled');
+                    }
+                }
                 break;
             }
 
-            case 5: { // Braid maze — woven loops, no dead ends
-                const gridW = 4 + Math.floor(r() * 2);
-                const gridH = 3 + Math.floor(r() * 2);
-                const cellW = 1.0 / gridW;
-                const cellH = 1.0 / gridH;
+            case 5: { // Recursive division maze — fractal nested chambers
+                const drawDivision = (u0: number, v0: number, u1: number, v1: number, depth: number) => {
+                    const w = u1 - u0;
+                    const h = v1 - v0;
+                    if (depth <= 0 || w < 0.07 || h < 0.07) return;
 
-                // Draw interlocking loops — horizontal and vertical paths that weave
-                for (let row = 0; row < gridH; row++) {
-                    // Horizontal wavy bands
-                    const v = (row + 0.5) * cellH;
-                    const pts: [number, number][] = [];
-                    for (let s = 0; s <= 20; s++) {
-                        const u = s / 20;
-                        const wave = Math.sin(u * Math.PI * (2 + Math.floor(r() * 2))) * cellH * 0.25;
-                        pts.push([u, v + wave]);
+                    if (w > h) {
+                        const wallU = u0 + w * (0.3 + r() * 0.4);
+                        const gapV = v0 + h * (0.1 + r() * 0.8);
+                        const gapSize = h * 0.15;
+                        drawUV([[wallU, v0], [wallU, Math.max(v0, gapV - gapSize)]], 'line');
+                        drawUV([[wallU, Math.min(v1, gapV + gapSize)], [wallU, v1]], 'line');
+                        drawDivision(u0, v0, wallU, v1, depth - 1);
+                        drawDivision(wallU, v0, u1, v1, depth - 1);
+                    } else {
+                        const wallV = v0 + h * (0.3 + r() * 0.4);
+                        const gapU = u0 + w * (0.1 + r() * 0.8);
+                        const gapSize = w * 0.15;
+                        drawUV([[u0, wallV], [Math.max(u0, gapU - gapSize), wallV]], 'line');
+                        drawUV([[Math.min(u1, gapU + gapSize), wallV], [u1, wallV]], 'line');
+                        drawDivision(u0, v0, u1, wallV, depth - 1);
+                        drawDivision(u0, wallV, u1, v1, depth - 1);
                     }
-                    drawUV(pts, 'line');
-                }
 
-                for (let col = 0; col < gridW; col++) {
-                    // Vertical wavy bands
-                    const u = (col + 0.5) * cellW;
-                    const pts: [number, number][] = [];
-                    for (let s = 0; s <= 20; s++) {
-                        const v = s / 20;
-                        const wave = Math.sin(v * Math.PI * (2 + Math.floor(r() * 2))) * cellW * 0.25;
-                        pts.push([u + wave, v]);
+                    // Fill leaf chambers in filled mode
+                    if (filled && depth === 1 && r() > 0.6) {
+                        const inset = 0.02;
+                        drawUV([
+                            [u0 + inset, v0 + inset], [u1 - inset, v0 + inset],
+                            [u1 - inset, v1 - inset], [u0 + inset, v1 - inset]
+                        ], 'filled');
                     }
-                    drawUV(pts, 'line');
-                }
+                };
 
-                // Draw intersection nodes
-                for (let row = 0; row < gridH; row++) {
-                    for (let col = 0; col < gridW; col++) {
-                        const cx = (col + 0.5) * cellW;
-                        const cy = (row + 0.5) * cellH;
-                        const nr = 0.02;
-                        if (filled || (row + col) % 2 === 0) {
-                            const n = 8;
-                            const nodePts: [number, number][] = [];
-                            for (let i = 0; i <= n; i++) {
-                                const a = (i / n) * Math.PI * 2;
-                                nodePts.push([cx + Math.cos(a) * nr, cy + Math.sin(a) * nr]);
-                            }
-                            drawUV(nodePts, (row + col) % 2 === 0 ? 'filled' : 'outline');
-                        }
-                    }
-                }
+                const depth = 3 + Math.floor(r() * 2);
+                drawDivision(0, 0, 1, 1, depth);
+                drawUV([[0, 0], [1, 0], [1, 1], [0, 1]], filled ? baseStyle : 'outline');
                 break;
             }
         }

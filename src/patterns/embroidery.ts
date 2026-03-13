@@ -151,19 +151,24 @@ const embroideryPatterns: PatternSet = {
                         // X marks
                         drawUV([[u0, v0], [u1, v1]], 'line');
                         drawUV([[u1, v0], [u0, v1]], 'line');
-                        // Grid cell outline in filled mode
+                        // Grid cell border in filled mode for some cells
                         if (filled && (row + col) % 3 === 0) {
                             drawUV([
                                 [col * cellW, row * cellH],
                                 [(col + 1) * cellW, row * cellH],
                                 [(col + 1) * cellW, (row + 1) * cellH],
                                 [col * cellW, (row + 1) * cellH]
-                            ], 'filled');
-                            // Redraw X on top with opaque-outline
-                            drawUV([[u0, v0], [u1, v1]], 'line');
-                            drawUV([[u1, v0], [u0, v1]], 'line');
+                            ], 'outline');
                         }
                     }
+                }
+                // Horizontal grid lines
+                for (let row = 0; row <= rows; row++) {
+                    drawUV([[0, row * cellH], [1, row * cellH]], 'line');
+                }
+                // Vertical grid lines
+                for (let col = 0; col <= cols; col++) {
+                    drawUV([[col * cellW, 0], [col * cellW, 1]], 'line');
                 }
                 break;
             }
