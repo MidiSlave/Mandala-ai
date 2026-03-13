@@ -1,5 +1,51 @@
 import type { PatternSet, PatternContext } from './types';
 
+// Simple orthogonal maze generator using recursive backtracking
+function generateGridMaze(cols: number, rows: number, rng: () => number): { hWalls: boolean[][], vWalls: boolean[][] } {
+    // hWalls[row][col] = true means there's a horizontal wall below cell (row, col)
+    // vWalls[row][col] = true means there's a vertical wall to the right of cell (row, col)
+    const hWalls: boolean[][] = Array.from({ length: rows + 1 }, () => Array(cols).fill(true));
+    const vWalls: boolean[][] = Array.from({ length: rows }, () => Array(cols + 1).fill(true));
+
+    const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+    const stack: [number, number][] = [];
+    const startR = Math.floor(rng() * rows);
+    const startC = Math.floor(rng() * cols);
+    visited[startR][startC] = true;
+    stack.push([startR, startC]);
+
+    const dirs: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    while (stack.length > 0) {
+        const [cr, cc] = stack[stack.length - 1];
+        // Shuffle directions
+        const shuffled = dirs.slice();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        let found = false;
+        for (const [dr, dc] of shuffled) {
+            const nr = cr + dr;
+            const nc = cc + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc]) {
+                visited[nr][nc] = true;
+                // Remove wall between (cr,cc) and (nr,nc)
+                if (dr === 1) hWalls[cr + 1][cc] = false;       // moving down: remove bottom wall
+                else if (dr === -1) hWalls[cr][cc] = false;      // moving up: remove top wall
+                else if (dc === 1) vWalls[cr][cc + 1] = false;   // moving right: remove right wall
+                else if (dc === -1) vWalls[cr][cc] = false;       // moving left: remove left wall
+                stack.push([nr, nc]);
+                found = true;
+                break;
+            }
+        }
+        if (!found) stack.pop();
+    }
+
+    return { hWalls, vWalls };
+}
+
 const mazePatterns: PatternSet = {
     name: 'Maze / Labyrinth',
     count: 6,
@@ -153,103 +199,143 @@ const mazePatterns: PatternSet = {
                 break;
             }
 
-            case 2: { // Branching corridors — thick maze-like corridors with dead ends
-                const corridorW = 0.06 + r() * 0.03;
-                const style = filled ? baseStyle : 'line';
+            case 2: { // Orthogonal grid maze — classic rectangular maze with walls
+                const cols = 3 + Math.floor(r() * 2); // 3-4 columns
+                const rows = 3 + Math.floor(r() * 2); // 3-4 rows
+                const { hWalls, vWalls } = generateGridMaze(cols, rows, r);
+                const cellW = 1.0 / cols;
+                const cellH = 1.0 / rows;
+                const margin = 0.03;
 
-                // Main corridor runs vertically through the center
-                const mainU = 0.4 + r() * 0.2;
-                drawUV([[mainU, 0], [mainU, 1]], style);
-
-                // Branch corridors at various heights
-                const numBranches = 3 + Math.floor(r() * 3);
-                for (let b = 0; b < numBranches; b++) {
-                    const branchV = (b + 0.5) / numBranches;
-                    const goRight = r() > 0.5;
-                    const branchLen = 0.15 + r() * 0.35;
-                    const endU = goRight
-                        ? Math.min(1 - 0.02, mainU + branchLen)
-                        : Math.max(0.02, mainU - branchLen);
-
-                    // Horizontal branch
-                    drawUV([[mainU, branchV], [endU, branchV]], style);
-
-                    // Some branches have a T-junction or L-turn
-                    if (r() > 0.4) {
-                        const turnLen = 0.08 + r() * 0.15;
-                        const turnDir = r() > 0.5 ? 1 : -1;
-                        const turnEnd = Math.min(1, Math.max(0, branchV + turnDir * turnLen));
-                        drawUV([[endU, branchV], [endU, turnEnd]], style);
-
-                        // Dead end marker
-                        if (filled && r() > 0.5) {
-                            const dr = corridorW * 0.6;
-                            const pts: [number, number][] = [];
-                            for (let j = 0; j <= 6; j++) {
-                                const a = (j / 6) * Math.PI * 2;
-                                pts.push([endU + Math.cos(a) * dr, turnEnd + Math.sin(a) * dr]);
+                // Draw horizontal walls
+                for (let row = 0; row <= rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        if (hWalls[row][col]) {
+                            const u0 = margin + col * cellW * (1 - 2 * margin);
+                            const u1 = margin + (col + 1) * cellW * (1 - 2 * margin);
+                            const v = margin + row * cellH * (1 - 2 * margin);
+                            if (filled) {
+                                const t = 0.015;
+                                drawUV([
+                                    [u0, v - t], [u1, v - t],
+                                    [u1, v + t], [u0, v + t]
+                                ], 'filled');
+                            } else {
+                                drawUV([[u0, v], [u1, v]], 'line');
                             }
-                            drawUV(pts, 'opaque-outline');
                         }
-                    }
-
-                    // Sub-branch for complexity
-                    if (r() > 0.5) {
-                        const subV = branchV + (r() - 0.5) * 0.1;
-                        const midU = mainU + (endU - mainU) * (0.3 + r() * 0.4);
-                        const subLen = 0.05 + r() * 0.1;
-                        const subEnd = Math.min(1, Math.max(0, subV + (r() > 0.5 ? subLen : -subLen)));
-                        drawUV([[midU, branchV], [midU, subEnd]], style);
                     }
                 }
 
-                // Wall borders
+                // Draw vertical walls
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col <= cols; col++) {
+                        if (vWalls[row][col]) {
+                            const u = margin + col * cellW * (1 - 2 * margin);
+                            const v0 = margin + row * cellH * (1 - 2 * margin);
+                            const v1 = margin + (row + 1) * cellH * (1 - 2 * margin);
+                            if (filled) {
+                                const t = 0.015;
+                                drawUV([
+                                    [u - t, v0], [u + t, v0],
+                                    [u + t, v1], [u - t, v1]
+                                ], 'filled');
+                            } else {
+                                drawUV([[u, v0], [u, v1]], 'line');
+                            }
+                        }
+                    }
+                }
+
+                // Fill some dead-end cells for visual interest
                 if (filled) {
-                    // Draw corridor walls as paired lines
-                    const hw = corridorW * 0.5;
-                    drawUV([[mainU - hw, 0], [mainU - hw, 1]], 'line');
-                    drawUV([[mainU + hw, 0], [mainU + hw, 1]], 'line');
-                } else {
-                    drawUV([[0, 0], [1, 0]], 'line');
-                    drawUV([[0, 1], [1, 1]], 'line');
+                    for (let row = 0; row < rows; row++) {
+                        for (let col = 0; col < cols; col++) {
+                            // Count walls around this cell
+                            let wallCount = 0;
+                            if (hWalls[row][col]) wallCount++;     // top
+                            if (hWalls[row + 1][col]) wallCount++; // bottom
+                            if (vWalls[row][col]) wallCount++;     // left
+                            if (vWalls[row][col + 1]) wallCount++; // right
+                            if (wallCount >= 3 && r() > 0.4) {
+                                const cu0 = margin + (col + 0.2) * cellW * (1 - 2 * margin);
+                                const cu1 = margin + (col + 0.8) * cellW * (1 - 2 * margin);
+                                const cv0 = margin + (row + 0.2) * cellH * (1 - 2 * margin);
+                                const cv1 = margin + (row + 0.8) * cellH * (1 - 2 * margin);
+                                drawUV([[cu0, cv0], [cu1, cv0], [cu1, cv1], [cu0, cv1]], 'opaque-outline');
+                            }
+                        }
+                    }
                 }
                 break;
             }
 
-            case 3: { // Brick/offset maze — staggered bricks with passage gaps
-                const brickRows = 3 + Math.floor(r() * 3);
-                const brickCols = 2 + Math.floor(r() * 2);
-                const brickH = 1.0 / brickRows;
-                const brickW = 1.0 / brickCols;
-                const mainStyle = filled ? 'filled' : 'outline';
+            case 3: { // Corridor maze — maze drawn as thick walkable corridors
+                const cols = 3 + Math.floor(r() * 2);
+                const rows = 3 + Math.floor(r() * 2);
+                const { hWalls, vWalls } = generateGridMaze(cols, rows, r);
+                const cellW = 1.0 / cols;
+                const cellH = 1.0 / rows;
+                const corridorW = 0.35; // fraction of cell width for corridor
 
-                for (let row = 0; row < brickRows; row++) {
-                    const offset = (row % 2 === 0) ? 0 : brickW * 0.5;
-                    const v0 = row * brickH;
-                    const v1 = v0 + brickH;
-                    const inset = 0.015;
+                // Draw corridors: for each cell, draw its center and connections to neighbors
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        const cx = (col + 0.5) * cellW;
+                        const cy = (row + 0.5) * cellH;
+                        const hw = cellW * corridorW * 0.5;
+                        const hh = cellH * corridorW * 0.5;
+                        const style = filled ? baseStyle : 'outline';
 
-                    for (let col = -1; col <= brickCols; col++) {
-                        const u0 = Math.max(0, col * brickW + offset);
-                        const u1 = Math.min(1, (col + 1) * brickW + offset);
-                        if (u1 <= u0 + 0.02) continue;
+                        // Cell center node
+                        drawUV([
+                            [cx - hw, cy - hh], [cx + hw, cy - hh],
+                            [cx + hw, cy + hh], [cx - hw, cy + hh]
+                        ], style);
 
-                        // Randomly open some bricks (passage through)
-                        if (r() > 0.25) {
+                        // Corridor to the right (if wall is open)
+                        if (col < cols - 1 && !vWalls[row][col + 1]) {
+                            const nx = (col + 1.5) * cellW;
                             drawUV([
-                                [u0 + inset, v0 + inset], [u1 - inset, v0 + inset],
-                                [u1 - inset, v1 - inset], [u0 + inset, v1 - inset]
-                            ], mainStyle);
-                        } else {
-                            // Gap — just draw the horizontal edges (no vertical sides)
-                            drawUV([[u0 + inset, v0 + inset], [u1 - inset, v0 + inset]], 'line');
-                            drawUV([[u0 + inset, v1 - inset], [u1 - inset, v1 - inset]], 'line');
+                                [cx + hw, cy - hh], [nx - hw, cy - hh],
+                                [nx - hw, cy + hh], [cx + hw, cy + hh]
+                            ], style);
+                        }
+
+                        // Corridor downward (if wall is open)
+                        if (row < rows - 1 && !hWalls[row + 1][col]) {
+                            const ny = (row + 1.5) * cellH;
+                            drawUV([
+                                [cx - hw, cy + hh], [cx + hw, cy + hh],
+                                [cx + hw, ny - hh], [cx - hw, ny - hh]
+                            ], style);
                         }
                     }
                 }
 
-                // Border
-                drawUV([[0, 0], [1, 0], [1, 1], [0, 1]], filled ? baseStyle : 'outline');
+                // Entrance and exit markers
+                if (filled) {
+                    // Entrance at top-left
+                    const entCx = 0.5 * cellW;
+                    const entCy = 0.5 * cellH;
+                    const dr = cellW * 0.12;
+                    const entPts: [number, number][] = [];
+                    for (let j = 0; j <= 8; j++) {
+                        const a = (j / 8) * Math.PI * 2;
+                        entPts.push([entCx + Math.cos(a) * dr, entCy + Math.sin(a) * dr]);
+                    }
+                    drawUV(entPts, 'opaque-outline');
+
+                    // Exit at bottom-right
+                    const exCx = (cols - 0.5) * cellW;
+                    const exCy = (rows - 0.5) * cellH;
+                    const exPts: [number, number][] = [];
+                    for (let j = 0; j <= 8; j++) {
+                        const a = (j / 8) * Math.PI * 2;
+                        exPts.push([exCx + Math.cos(a) * dr, exCy + Math.sin(a) * dr]);
+                    }
+                    drawUV(exPts, 'opaque-outline');
+                }
                 break;
             }
 
