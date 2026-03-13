@@ -111,31 +111,48 @@ The core challenge: we need an LLM to classify headlines into themes/sentiments.
 
 **Verdict:** Unusable for client-side on GitHub Pages. Would need a proxy.
 
+### CurrentsAPI (**Best Option**)
+
+| Metric | Free Tier |
+|--------|-----------|
+| Rate limit | **600 requests/day** |
+| Articles | Structured JSON with full-text extraction |
+| Sources | 90,000+ articles ingested daily |
+| Categories | Yes (business, sports, tech, etc.) |
+| Languages | 18+ |
+| Countries | 70+ |
+| Historical | 6 months |
+
+**CORS:** **Yes, CORS-enabled.** Browser-side `fetch()` calls work from any origin.
+
+**Verdict:** **Most generous free tier with working CORS.** 6x more requests than GNews. Built-in categories reduce LLM classification needs.
+
 ### GNews.io
 
 | Metric | Free Tier |
 |--------|-----------|
-| Rate limit | 100 requests/day |
+| Rate limit | 100 requests/day, max 1 req/sec |
 | Articles | Max 10 per request |
-| Sources | 60,000+ |
+| Sources | 80,000+ (based on Google News rankings) |
+| Features | Category/language filtering, full content via deep-learning extractor |
 
-**CORS:** No explicit documentation. Likely blocked (API key in query params, no CORS headers confirmed).
+**CORS:** **Yes, confirmed CORS-enabled for all origins.** Browser-side calls work.
 
-**Verdict:** Decent data but CORS is uncertain. Needs testing or proxy.
+**Verdict:** Good quality, confirmed CORS. Non-commercial use only on free tier. 100 req/day is sufficient for 5-15 min refresh intervals.
 
 ### NewsData.io
 
 | Metric | Free Tier |
 |--------|-----------|
-| Rate limit | 200 credits/day |
+| Rate limit | 200 credits/day (10 articles/credit = 2,000 articles/day) |
 | Articles | Max 10 per request |
 | Sources | 79,451 across 206 countries |
 | Languages | 89 |
-| Categories | Yes (built-in) |
+| Categories | Yes (built-in) + AI sentiment analysis |
 
-**CORS:** Not documented. Likely requires proxy.
+**CORS:** **Localhost only on free tier.** Production CORS requires paid plan.
 
-**Verdict:** Best category/topic tagging in free tiers. Good source diversity.
+**Verdict:** Excellent data quality but unusable for static site (same CORS block as NewsAPI.org).
 
 ### Webz.io News API Lite
 
@@ -144,10 +161,36 @@ The core challenge: we need an LLM to classify headlines into themes/sentiments.
 | Rate limit | 1,000 calls/month (~33/day) |
 | Articles | Max 10 per call |
 | Features | Sentiment analysis, IPTC categories, entity extraction |
+| Languages | 170+ |
 
 **CORS:** Not documented.
 
-**Verdict:** Lower volume but includes sentiment analysis and categorization — exactly what we need for theme extraction.
+**Verdict:** Lower volume but includes sentiment analysis and categorization. CORS status uncertain.
+
+### Wikipedia Current Events
+
+| Metric | Free Tier |
+|--------|-----------|
+| Rate limit | Unlimited (be polite, set User-Agent) |
+| API key | Not required |
+| Languages | 15+ |
+| Content | Curated daily events by Wikipedia editors |
+
+**CORS:** **Yes**, with `&origin=*` query parameter.
+
+**Verdict:** Free, no key, CORS works. Good for "events of the day" summaries. Not a live news feed — more encyclopedic/curated.
+
+### Reddit JSON API
+
+| Metric | Free Tier |
+|--------|-----------|
+| Rate limit | ~10 requests/minute (unauthenticated) |
+| API key | Not required — append `.json` to any subreddit URL |
+| Endpoints | `/r/news/hot.json`, `/r/worldnews/top.json`, `/r/technology/hot.json` |
+
+**CORS:** **Mostly yes** — sends `Access-Control-Allow-Origin: *`. However, Firefox strict tracking protection blocks Reddit (flagged as tracker).
+
+**Verdict:** Useful supplement, no API key needed. Firefox compatibility concern. Community-curated, not editorial.
 
 ### RSS-to-JSON Services (CORS-Friendly)
 
@@ -177,11 +220,27 @@ A JS library (`puter.net.fetch()`) that acts as a drop-in `fetch()` replacement,
 
 **Verdict:** Could unlock any news API from client-side. But adds a dependency on Puter's infrastructure. Worth investigating as a fallback.
 
+### CORS-Support Summary
+
+| API/Service | CORS from browser? | Free tier limits | Best for |
+|---|---|---|---|
+| **CurrentsAPI** | **Yes** | 600 req/day | Primary — most generous with CORS |
+| **GNews.io** | **Yes** | 100 req/day | Secondary — good quality (non-commercial) |
+| **rss2json.com + RSS feeds** | **Yes** | ~10,000 req/day | Most flexible — any RSS feed as JSON |
+| **Toptal feed2json + RSS** | **Yes** | Free (unknown limits) | Backup RSS-to-JSON converter |
+| **Wikipedia Current Events** | **Yes** (with `origin=*`) | Unlimited | Curated daily event summaries |
+| **Reddit .json** | Mostly (not Firefox strict) | ~10 req/min | Supplemental, community-curated |
+| NewsAPI.org | **No** (localhost only) | 100 req/day | Unusable without proxy |
+| Newsdata.io | **No** (localhost only) | 200 credits/day | Unusable without proxy |
+| Mediastack | **No** (+ HTTP only) | 100 req/month | Unusable |
+
 ### Recommended News Strategy
 
-1. **Primary:** RSS feeds via rss2json.com or AllOrigins proxy → parse headlines → send to LLM for classification
-2. **Fallback:** Puter.js to call GNews/NewsData APIs if RSS is insufficient
-3. **User input:** Also accept pasted text/URLs as manual data source
+1. **Primary:** CurrentsAPI (600 req/day, CORS-enabled, built-in categories) — reduces LLM classification burden
+2. **Secondary:** RSS feeds via rss2json.com (Google News, BBC, Reuters) — no API key, unlimited sources
+3. **Supplement:** GNews.io (100 req/day, CORS-enabled) for additional coverage
+4. **Fallback:** Wikipedia Current Events for curated daily summaries (no key needed)
+5. **User input:** Also accept pasted text/URLs as manual data source
 
 ---
 
@@ -475,14 +534,15 @@ Skip icons entirely. Extract emotional tone and map to abstract visual qualities
 ```
 
 **Stack:**
-- **News:** Google News RSS → rss2json.com (CORS-friendly, no API key)
+- **News:** CurrentsAPI (600 req/day, CORS, built-in categories) + Google News RSS via rss2json.com (fallback)
 - **LLM:** Google Gemini free tier via `@google/genai` JS SDK (domain-restricted key)
 - **Mapping:** Hardcoded lookup table (theme → pattern set + parameters)
 - **Fallback:** Random patterns if APIs fail (current behavior)
 
-**API calls per refresh:**
-- 1 RSS fetch (rss2json.com, unlimited free)
+**API calls per refresh (every 10-15 min):**
+- 1 CurrentsAPI call (600/day budget → supports refresh every ~2.5 min)
 - 1 LLM call with ~10 headlines (~500 tokens, Gemini free = 100+ calls/day)
+- CurrentsAPI provides categories, which reduces LLM classification work
 
 **Data flow timing:**
 - Fetch news every 5-15 minutes (stale news is fine — mandala is ambient)
@@ -518,7 +578,7 @@ If the project grows beyond prototyping:
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| **News source** | RSS feeds via rss2json.com | Free, CORS-friendly, no API key, high-quality sources |
+| **News source** | CurrentsAPI (primary) + RSS via rss2json.com (fallback) | 600 req/day CORS-enabled + unlimited RSS fallback |
 | **LLM provider** | Google Gemini (free tier) | Best free limits, domain-restricted keys, JS SDK works in browser |
 | **LLM fallback** | Groq (free tier) | Fastest inference, good free limits |
 | **Icon source** | Lucide (already imported) + OpenMoji | Permissive licenses, good thematic coverage |
@@ -570,10 +630,12 @@ For a **free, open-source art project** hosted on GitHub Pages:
 - [Cloudflare Workers AI](https://developers.cloudflare.com/ai-gateway/usage/providers/groq/)
 
 ### News APIs
-- [NewsAPI.org Pricing](https://newsapi.org/pricing)
+- [CurrentsAPI](https://currentsapi.services/en) — 600 req/day, CORS-enabled
+- [GNews API Docs](https://docs.gnews.io/) — 100 req/day, CORS-enabled
+- [NewsAPI.org Pricing](https://newsapi.org/pricing) — CORS blocked on free tier
 - [NewsData.io Free News APIs](https://newsdata.io/blog/best-free-news-api/)
-- [GNews API Docs](https://docs.gnews.io/)
 - [Free News API Comparison](https://github.com/free-news-api/news-api)
+- [Wikipedia Current Events API](https://api.wikimedia.org/wiki/Current_events)
 - [rss2json.com](https://rss2json.com/)
 - [AllOrigins CORS Proxy](https://allorigins.win/)
 - [Toptal feed2json](https://www.toptal.com/developers/feed2json/)
