@@ -20,23 +20,28 @@
 
 The core challenge: we need an LLM to classify headlines into themes/sentiments. This is a small task (~500 tokens in, ~200 tokens out). Must work from a static GitHub Pages site with **no backend**.
 
-### Google Gemini (generativelanguage.googleapis.com)
+### Google Gemini (generativelanguage.googleapis.com) — **Best Option**
 
 | Metric | Free Tier |
 |--------|-----------|
-| Rate limit | 5-15 RPM depending on model |
-| Daily limit | 100-1,000 RPD depending on model |
-| Token limit | 250,000 TPM |
+| Gemini 2.5 Flash-Lite | 15 RPM, **1,000 RPD** |
+| Gemini 2.5 Flash | 10 RPM, 250 RPD |
+| Gemini 2.5 Pro | 5 RPM, 100 RPD |
+| Token limit | 250,000 TPM (all models) |
 | Credit card | Not required |
 | Context window | 1M tokens |
 
-**CORS:** Does **NOT** natively support CORS for browser calls. The `generativelanguage.googleapis.com` endpoint does not send permissive `Access-Control-Allow-Origin` headers. Google's official JS SDK (`@google/genai`) works in browser but is labeled "**prototyping only**" — not recommended for production.
+**CORS:** **YES — confirmed working.** The `@google/genai` SDK ships a browser-specific build and `generativelanguage.googleapis.com` returns proper CORS headers. This is one of the few major LLM APIs that actually works natively from browser-side `fetch()`.
 
-**Key security:** API keys can be restricted by HTTP referrer (domain), which partially mitigates exposure in client-side code. However, keys can still be extracted from JS source.
+**Key security:** API keys can be restricted by HTTP referrer in Google Cloud Console (e.g., limit to `*.github.io`), and scoped to only the Generative Language API. Referrer restrictions can be spoofed from server-side scripts, but since this is a free tier with no billing, abuse is limited to quota exhaustion.
 
 **Firebase AI Logic** is Google's recommended path for production client-side apps — it adds Firebase App Check for security. But it requires a Firebase project (adds complexity).
 
-**Verdict:** Usable for prototyping. The JS SDK does work in-browser despite CORS warnings. Domain-restricted keys provide some protection. Best free tier overall (generous limits, no credit card). **Primary recommendation for MVP.**
+**Response latency:** Flash-Lite is very fast, typically under 1 second for small classification tasks.
+
+**Browser SDK:** `@google/genai` (npm, current v1.44.0) — works natively in browser with API key auth.
+
+**Verdict:** **Clear winner for static GitHub Pages.** 1,000 req/day on Flash-Lite is generous for 5-15 min refresh intervals. CORS works natively. Domain-restricted keys. Fast responses. No credit card.
 
 ### Groq
 
@@ -48,11 +53,11 @@ The core challenge: we need an LLM to classify headlines into themes/sentiments.
 | Credit card | Not required |
 | Latency | Extremely fast (~100-500ms) |
 
-**CORS:** The TypeScript SDK has a `dangerouslyAllowBrowser: true` flag, confirming the API endpoint **does support CORS**. But it's explicitly discouraged for production due to key exposure.
+**CORS:** **NO.** The `api.groq.com` endpoint does **not** return CORS headers for browser origins. The TypeScript SDK has a `dangerouslyAllowBrowser` flag but the API itself blocks cross-origin requests. Direct browser `fetch()` calls will fail.
 
-**Key security:** No domain-restriction option. Keys are fully exposed in client code.
+**Key security:** No domain-restriction option. Keys are plain bearer tokens.
 
-**Verdict:** Fastest inference available. Great for the "near real-time" requirement. CORS works. But no key protection makes it riskier than Gemini for a public site. **Good secondary option.**
+**Verdict:** Fastest inference available (~sub-500ms) with generous limits (14,400 RPD). But **unusable without a CORS proxy or backend**. Not viable for a pure static site.
 
 ### OpenRouter
 
@@ -63,9 +68,9 @@ The core challenge: we need an LLM to classify headlines into themes/sentiments.
 | API format | OpenAI-compatible |
 | Credit card | Not required for free |
 
-**CORS:** OpenAI-compatible API at `https://openrouter.ai/api/v1` — can be called via `fetch()` from browser.
+**CORS:** **NO.** OpenRouter's API does not return CORS headers for browser origins. Needs a proxy for client-side use.
 
-**Verdict:** Useful as a fallback router. Low free tier limits (50/day) but diverse model selection. The `openrouter/free` endpoint auto-selects models.
+**Verdict:** Good model diversity but **unusable without a proxy**. Low free limits (50/day). The `openrouter/free` endpoint auto-selects models.
 
 ### Cloudflare Workers AI
 
@@ -75,20 +80,19 @@ The core challenge: we need an LLM to classify headlines into themes/sentiments.
 | Models | Multiple open-source models |
 | Credit card | Not required |
 
-**CORS:** Not a direct browser API — it's a serverless compute platform. You'd deploy a Worker script that holds your API key securely and proxies requests. This is essentially a lightweight "serverless backend."
+**CORS:** Not applicable — it's a serverless compute platform. You deploy a Worker script (~10 lines of code) that holds your API key securely and proxies requests. Free to deploy, runs on Cloudflare's edge network.
 
-**Verdict:** **Best for solving the API key exposure problem.** A Cloudflare Worker can securely proxy LLM calls and news API calls. Free tier is generous. But requires deploying a Worker (not purely static site anymore).
+**Verdict:** **Best for solving the API key exposure problem.** 100,000 AI requests/day free tier is enormous. A Cloudflare Worker can securely proxy both LLM and news API calls. But requires deploying a Worker (not purely static site anymore).
 
 ### Summary Table
 
-| Provider | Free RPD | CORS | Key Security | Latency | Best For |
-|----------|----------|------|-------------|---------|----------|
-| Gemini | 100-1,000 | Partial* | Domain restrict | ~1-3s | MVP/prototyping |
-| Groq | ~14,400 | Yes | None | ~0.1-0.5s | Speed-critical |
-| OpenRouter | 50 | Yes | None | Varies | Fallback/variety |
-| CF Workers | 10K neurons | N/A (proxy) | Secure | ~1-2s | Production proxy |
-
-*Gemini: JS SDK works in browser but officially "prototyping only"
+| Provider | Free RPD | CORS from Browser | Key Security | Latency | Usable from Static Site? |
+|----------|----------|-------------------|-------------|---------|--------------------------|
+| **Gemini** | **1,000** (Flash-Lite) | **YES (native)** | HTTP referrer restrict | <1s | **YES — best option** |
+| Groq | ~14,400 | **NO** | None | ~0.1-0.5s | No (needs proxy) |
+| OpenRouter | 50-200 | **NO** | None | 1-3s | No (needs proxy) |
+| CF Workers AI | 100K | N/A (is the proxy) | Secure (server-side) | ~1-2s | Yes, but needs Worker deploy |
+| Hugging Face | Limited | Mostly yes | None | 10-30s cold start | Too slow |
 
 ---
 
@@ -580,7 +584,7 @@ If the project grows beyond prototyping:
 |-----------|--------|--------|
 | **News source** | CurrentsAPI (primary) + RSS via rss2json.com (fallback) | 600 req/day CORS-enabled + unlimited RSS fallback |
 | **LLM provider** | Google Gemini (free tier) | Best free limits, domain-restricted keys, JS SDK works in browser |
-| **LLM fallback** | Groq (free tier) | Fastest inference, good free limits |
+| **LLM fallback** | Local classification (no LLM) | Keyword-based theme mapping if Gemini is down |
 | **Icon source** | Lucide (already imported) + OpenMoji | Permissive licenses, good thematic coverage |
 | **SVG parser** | svg-path-parser (npm) | MIT, browser-compatible, well-maintained |
 | **CORS backup** | Puter.js `puter.net.fetch()` | Drop-in fetch replacement, no config |
