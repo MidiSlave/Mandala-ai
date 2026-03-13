@@ -257,8 +257,10 @@ export default function App() {
         ctx.lineJoin = 'round';
         ctx.miterLimit = 2;
 
-        // Clear with warm stone/paper texture color
-        ctx.fillStyle = '#EBE7E0';
+        const theme = themeRef.current;
+
+        // Clear with theme background color
+        ctx.fillStyle = theme.background;
         ctx.fillRect(0, 0, width, height);
 
         ctx.save();
@@ -326,8 +328,6 @@ export default function App() {
 
         const patternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
 
-        // Helper: Draw a rough path (theme-aware)
-        const theme = themeRef.current;
         let layerColor = theme.colors[0]; // updated per-layer
 
         // Roughness modulation: sine wave adds animated roughness on top of the base setting
@@ -384,12 +384,12 @@ export default function App() {
             };
 
             if (style === 'filled' || style === 'opaque-outline') {
-                ctx.fillStyle = style === 'filled' ? '#1A1818' : '#EBE7E0';
+                ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
                 tracePath(perturbedPoints, true);
                 ctx.fill();
             }
 
-            ctx.strokeStyle = style === 'filled' ? 'rgba(26, 24, 24, 0.9)' : 'rgba(26, 24, 24, 0.6)';
+            ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
             ctx.lineWidth = lineWidth;
 
             // Single clean stroke pass (second pass with slight offset for hand-drawn feel)
@@ -412,10 +412,10 @@ export default function App() {
             ctx.beginPath();
             ctx.arc(cx + rx, cy + ry, Math.max(0.5, radius), 0, Math.PI * 2);
             if (style === 'filled' || style === 'opaque-outline') {
-                ctx.fillStyle = style === 'filled' ? '#1A1818' : '#EBE7E0';
+                ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
                 ctx.fill();
             }
-            ctx.strokeStyle = style === 'filled' ? 'rgba(26, 24, 24, 0.9)' : 'rgba(26, 24, 24, 0.6)';
+            ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
             ctx.lineWidth = lineWidth;
             ctx.stroke();
         };
@@ -768,6 +768,9 @@ export default function App() {
             const filled = layerFilled[l + 1];
             const layerRng = mulberry32(config.seed + absL * 999);
 
+            // Pick a color for this layer from the theme palette
+            layerColor = theme.colors[((absL % theme.colors.length) + theme.colors.length) % theme.colors.length];
+
             // Base radii
             let r1 = Math.max(0, (l + offset) * config.spread);
             let r2 = Math.max(0, (l + 1 + offset) * config.spread);
@@ -794,7 +797,7 @@ export default function App() {
             ctx.clip();
 
             // Fill the band background
-            ctx.fillStyle = '#EBE7E0';
+            ctx.fillStyle = theme.background;
             ctx.beginPath();
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
@@ -805,7 +808,7 @@ export default function App() {
             // Draw separator ring at outer boundary
             ctx.beginPath();
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(26, 24, 24, 0.5)';
+            ctx.strokeStyle = theme.strokeLight;
             ctx.lineWidth = lw * 0.8;
             ctx.stroke();
 
@@ -817,7 +820,16 @@ export default function App() {
                 if (isGenerative) {
                     drawGenerativeCell(type, r1, r2, layerTwist, filled, layerRng, lw);
                 } else {
-                    drawCulturalCell(type, r1, r2, layerTwist, filled, layerRng, lw);
+                    // Use modular pattern sets from ./patterns
+                    const activeSet = patternSet
+                        ? patternSet
+                        : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
+                    const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                        const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
+                        drawSmoothPath(pts, style, layerRng, lw);
+                    };
+                    const baseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
+                    activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle });
                 }
 
                 ctx.restore();
@@ -856,9 +868,9 @@ export default function App() {
         if (innerR > 0) {
             ctx.beginPath();
             ctx.arc(0, 0, innerR, 0, Math.PI * 2);
-            ctx.fillStyle = '#EBE7E0';
+            ctx.fillStyle = theme.background;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(26, 24, 24, 0.5)';
+            ctx.strokeStyle = theme.strokeLight;
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -867,7 +879,7 @@ export default function App() {
 
         // Add subtle grain overlay (seeded for stability)
         const grainRng = mulberry32(Math.floor(now * 0.001));
-        ctx.fillStyle = 'rgba(0,0,0,0.025)';
+        ctx.fillStyle = theme.grain;
         for(let i = 0; i < 1200; i++) {
             ctx.fillRect(grainRng() * width, grainRng() * height, 1.5, 1.5);
         }
@@ -1186,8 +1198,8 @@ export default function App() {
                         </button>
 
                         <div className="text-center mb-4">
-                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mesoamerican Mandala</h2>
-                            <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Aztec/Mayan Textures</p>
+                            <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
+                            <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Pattern Explorer</p>
                         </div>
 
                         <div className="flex justify-center gap-2 mb-5 pointer-events-auto touch-auto">
