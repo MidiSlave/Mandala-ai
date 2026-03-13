@@ -192,6 +192,12 @@ export default function App() {
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
+    const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
+    const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
+    const [patternSetIndex, setPatternSetIndex] = useState(0);
+    const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
+    const [themeIndex, setThemeIndex] = useState(0);
+    const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [patternMode, setPatternMode] = useState<PatternMode>(DEFAULT_CONFIG.mode);
     const dragControls = useDragControls();
 
