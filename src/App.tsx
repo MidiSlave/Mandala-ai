@@ -819,9 +819,11 @@ export default function App() {
                 } else {
                     drawCulturalCell(type, r1, r2, layerTwist, filled, layerRng, lw);
                 }
+
+                ctx.restore();
             }
 
-            ctx.restore();
+            ctx.restore(); // Restore clipping
         }
 
         // Dense center vanishing point — inside the innermost visible layer
