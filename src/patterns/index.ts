@@ -23,3 +23,8 @@ export { default as opArtPatterns } from './opart';
 export { default as artNouveauPatterns } from './artnouveau';
 export { default as aboriginalPatterns } from './aboriginal';
 export { default as polynesianPatterns } from './polynesian';
+export { default as embroideryPatterns } from './embroidery';
+export { default as mazePatterns } from './maze';
+export { default as flowFieldPatterns } from './flowfield';
+export { default as noiseStrataPatterns } from './noisestrata';
+export { default as organicCellPatterns } from './organiccells';
