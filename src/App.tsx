@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Minimize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Seeded RNG ---
@@ -912,6 +912,30 @@ export default function App() {
         configRef.current.waveSpeed = val;
     };
 
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    useEffect(() => {
+        const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', onFsChange);
+        document.addEventListener('webkitfullscreenchange', onFsChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFsChange);
+            document.removeEventListener('webkitfullscreenchange', onFsChange);
+        };
+    }, []);
+
+    const toggleFullscreen = () => {
+        const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+        const doc = document as Document & { webkitExitFullscreen?: () => void };
+        if (!document.fullscreenElement) {
+            if (el.requestFullscreen) el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        } else {
+            if (doc.exitFullscreen) doc.exitFullscreen();
+            else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+        }
+    };
+
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-none">
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
@@ -924,13 +948,22 @@ export default function App() {
                 {uiVisible ? <X size={24} /> : <Settings2 size={24} />}
             </button>
 
-            <button 
-                onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
-                className="absolute top-6 right-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
-                title="Save Image"
-            >
-                <Download size={24} />
-            </button>
+            <div className="absolute top-6 right-6 z-50 flex gap-2 pointer-events-auto touch-auto">
+                <button
+                    onPointerDown={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5"
+                    title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                >
+                    {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+                </button>
+                <button
+                    onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5"
+                    title="Save Image"
+                >
+                    <Download size={24} />
+                </button>
+            </div>
 
             <AnimatePresence>
                 {uiVisible && (
@@ -939,7 +972,7 @@ export default function App() {
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 50, opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md max-h-[75vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto"
                     >
                         <button 
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
