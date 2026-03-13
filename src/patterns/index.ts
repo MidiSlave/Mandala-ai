@@ -11,3 +11,5 @@ export { default as japanesePatterns } from './japanese';
 export { default as sacredPatterns } from './sacred';
 export { default as celticPatterns } from './celtic';
 export { default as egyptianPatterns } from './egyptian';
+export { default as mesoamericanPatterns } from './mesoamerican';
+export { default as generativePatterns } from './generative';
