@@ -231,15 +231,27 @@ Largest free icon set. Great category tagging. Line-art style would work well wi
 
 Part of Google's Noto fonts project. Available as individual SVG files on GitHub. Very detailed — may be too complex for UV conversion.
 
-### Material Symbols
+### Material Symbols / Pictogrammers MDI
+
+| Metric | Google Material Symbols | Pictogrammers MDI (community) |
+|--------|------------------------|-------------------------------|
+| Icons | 2,500+ | 7,200+ |
+| License | Apache 2.0 | Apache 2.0 |
+| Categories | Well-organized | Category + tag metadata in `data.json` |
+| Styles | Outlined, rounded, sharp | Outline + filled |
+
+Clean geometric style. Good for abstract concept representation. Pictogrammers MDI is the largest single Apache 2.0 set.
+
+### Iconify (Meta-Library / Aggregator)
 
 | Metric | Details |
 |--------|---------|
-| Icons | 3,000+ |
-| License | Apache 2.0 |
-| Categories | Well-organized |
+| Icons | 275,000+ from 200+ icon sets |
+| License | Varies per set (respects originals) |
+| API | REST search by keyword, category, prefix, style |
+| SVG access | `https://api.iconify.design/{prefix}/{name}.svg` |
 
-Clean geometric style. Good for abstract concept representation.
+One API to search across all major icon sets. Could be used during curation to find the best icons per theme across all libraries simultaneously. Can be self-hosted.
 
 ### Theme-to-Icon Mapping Feasibility
 
@@ -266,13 +278,22 @@ Most of these exist across all libraries listed above. Building a table of ~50-1
 
 ### Libraries Available
 
+**Parsing SVG path `d` attributes:**
+
 | Library | What It Does | Browser? | License |
 |---------|-------------|----------|---------|
-| **svg-path-parser** (hughsk) | Parses SVG `d` attributes → command objects | Yes | MIT |
+| **svg-path-parser** (hughsk) | PEG.js grammar → command objects with x,y; `makeAbsolute()` | Yes | MIT |
+| **svgpath** (npm) | Chainable transforms; `.unarc()` arcs→beziers; `.abs()` | Yes | MIT |
+| **svg-pathdata** (nfroidure) | Streaming parser; transformer architecture | Yes | MIT |
+| **parse-svg-path** (jkroso) | Minimal → `[command, ...args]` arrays (~1KB) | Yes | MIT |
 | **PathToPoints** (Shinao) | SVG paths → point arrays directly | Yes | MIT |
-| **js-svg-path** (Pomax) | SVG paths → shape objects with `getShapes()` | Yes | — |
-| **parse-svg-path** (jkroso) | Minimal parser → `[command, ...args]` arrays | Yes | MIT |
-| **SVGPathInfo** | Parse + modify paths, get absolute coords | Yes | MIT |
+
+**Sampling points along paths (flattening curves):**
+
+| Library | What It Does | Browser? |
+|---------|-------------|----------|
+| **svg-path-properties** | Pure JS `getPointAtLength(t)` and `getTotalLength()` — no DOM needed | Yes |
+| **De Casteljau** (manual) | ~10 lines of code for Bezier subdivision | Yes |
 
 ### Conversion Pipeline
 
@@ -280,7 +301,8 @@ Most of these exist across all libraries listed above. Building a table of ~50-1
 SVG icon file
   → Extract <path d="..."> attribute
   → Parse with svg-path-parser (handles M, L, C, Q, A, Z commands)
-  → Flatten curves to line segments (adaptive subdivision)
+  → Convert arcs to beziers (svgpath .unarc())
+  → Flatten curves via svg-path-properties getPointAtLength(t)
   → Normalize to [0,1] × [0,1] bounding box
   → Output as [number, number][] array
   → Feed into drawUV()
@@ -290,9 +312,10 @@ SVG icon file
 
 SVG paths contain curved segments (Cubic Bezier `C`, Quadratic Bezier `Q`, Arcs `A`). These need to be flattened to polylines:
 
-- **De Casteljau subdivision** for Bezier curves — well-understood, ~10 lines of code
+- **`svg-path-properties.getPointAtLength(t)`** — cleanest approach, handles all command types transparently
+- **`svgpath.unarc()`** — converts arcs to cubic beziers first, then De Casteljau subdivide
 - **Adaptive subdivision** — more points where curvature is high, fewer on straight sections
-- **Resolution:** 20-50 points per path segment is typically sufficient for recognizable shapes
+- **Resolution:** 30-60 points per subpath is the sweet spot for mandala UV cells
 
 ### Will It Look Good Through the Mandala Renderer?
 
@@ -301,13 +324,22 @@ SVG paths contain curved segments (Cubic Bezier `C`, Quadratic Bezier `Q`, Arcs 
 1. **Simple, bold icons work best.** The mandala renderer applies hand-drawn wobble (roughness perturbation) and Catmull-Rom curve smoothing. Thin/detailed SVGs will become muddy.
 2. **Emoji-style icons** (OpenMoji, Noto) tend to have bold outlines and simple fills — ideal.
 3. **The UV cell is small.** Each pattern draws in a unit cell that maps to one symmetry slice of one ring layer. Complex 20-path SVGs won't be legible at that scale.
-4. **Decompose multi-path SVGs.** Many icons have multiple `<path>` elements. Each would become a separate `drawUV()` call with its own style.
+4. **Decompose multi-path SVGs.** Many icons have multiple `<path>` elements or `M` (moveTo) commands. Each subpath becomes a separate `drawUV()` call with its own style.
 5. **Pre-conversion recommended.** Converting SVGs at build time (not runtime) avoids performance overhead. Ship the point arrays as JSON data.
+6. **Limit to 1-3 subpaths per icon.** Icons with 10+ subpaths will be slow and visually muddy. Existing cultural patterns already generate 60-130+ `drawUV` calls per cell — icon patterns should stay within this budget.
+
+### Point Count Guidelines
+
+| Icon Complexity | Points per Subpath | Examples |
+|-----------------|-------------------|----------|
+| Simple shapes | 20-40 | star, heart, circle, arrow |
+| Medium | 40-80 | animals, vehicles, tools |
+| Complex (avoid) | 80-150+ | detailed faces, buildings |
 
 ### Estimated Effort
 
 - **Parse + flatten pipeline:** ~100-200 lines of TypeScript utility code
-- **Build ~50 themed icon point arrays:** 2-4 hours with a script
+- **Build ~50 themed icon point arrays:** 2-4 hours with a script (use Iconify API to search + fetch SVGs across libraries)
 - **Integration with PatternSet interface:** New `PatternSet` that indexes into the icon array by theme
 
 ---
@@ -549,7 +581,14 @@ For a **free, open-source art project** hosted on GitHub Pages:
 ### SVG/Icons
 - [OpenMoji](https://openmoji.org/)
 - [Lucide Icons](https://lucide.dev/)
+- [Tabler Icons](https://tabler.io/icons)
+- [Google Noto Emoji](https://github.com/googlefonts/noto-emoji)
+- [Google Material Symbols](https://fonts.google.com/icons)
+- [Pictogrammers MDI](https://materialdesignicons.com/)
+- [Iconify API](https://iconify.design/docs/api/)
 - [svg-path-parser](https://www.npmjs.com/package/svg-path-parser)
+- [svgpath](https://www.npmjs.com/package/svgpath)
+- [svg-path-properties](https://github.com/rveciana/svg-path-properties)
 - [PathToPoints](https://github.com/Shinao/PathToPoints)
 
 ### CORS Solutions
