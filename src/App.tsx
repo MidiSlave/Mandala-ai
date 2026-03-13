@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
@@ -13,7 +13,7 @@ const ALL_PATTERN_SETS: PatternSet[] = [
     lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns,
     sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns,
     mesoamericanPatterns, generativePatterns, guillochePatterns,
-    fractalPatterns, spiralPatterns, harmonographPatterns
+    fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns
 ];
 
 export default function App() {
@@ -51,6 +51,10 @@ export default function App() {
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
 
+    // Offscreen grain canvas (pre-rendered, reused across frames)
+    const grainCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const grainSeedRef = useRef<number>(-1);
+
 
     // --- Drawing Logic ---
     const draw = useCallback(() => {
@@ -62,11 +66,18 @@ export default function App() {
         const width = window.innerWidth;
         const height = window.innerHeight;
 
-        // Ease pointer for smooth reactive bulging
-        const dx = pointerRef.current.x - easedPointerRef.current.x;
-        const dy = pointerRef.current.y - easedPointerRef.current.y;
-        easedPointerRef.current.x += dx * 0.1;
-        easedPointerRef.current.y += dy * 0.1;
+        // Ease pointer for smooth reactive bulging (snap when close to stop redraws)
+        let dx = pointerRef.current.x - easedPointerRef.current.x;
+        let dy = pointerRef.current.y - easedPointerRef.current.y;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            easedPointerRef.current.x = pointerRef.current.x;
+            easedPointerRef.current.y = pointerRef.current.y;
+            dx = 0;
+            dy = 0;
+        } else {
+            easedPointerRef.current.x += dx * 0.1;
+            easedPointerRef.current.y += dy * 0.1;
+        }
 
         const now = performance.now();
         const dt = (now - lastTimeRef.current) / 1000;
@@ -174,41 +185,43 @@ export default function App() {
         };
 
         // Helper: Draw a smooth bezier curve through points
+        // Pre-allocated buffers to reduce GC pressure (max 200 points per path)
+        const _ox = new Float64Array(200);
+        const _oy = new Float64Array(200);
+        const _px = new Float64Array(200);
+        const _py = new Float64Array(200);
+
         const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number) => {
-            if (points.length < 2) return;
+            const n = points.length;
+            if (n < 2) return;
             const lineWidth = lw ?? 1.5;
+            const rough = config.roughness;
 
-            // Apply consistent roughness to both fill and stroke using same offsets
-            const offsets = points.map(() => ({
-                dx: (rng() - 0.5) * config.roughness,
-                dy: (rng() - 0.5) * config.roughness
-            }));
+            // Compute offsets and perturbed coords into pre-allocated buffers
+            for (let i = 0; i < n; i++) {
+                const odx = (rng() - 0.5) * rough;
+                const ody = (rng() - 0.5) * rough;
+                _ox[i] = odx;
+                _oy[i] = ody;
+                _px[i] = points[i].x + odx;
+                _py[i] = points[i].y + ody;
+            }
 
-            const perturbedPoints = points.map((p, i) => ({
-                x: p.x + offsets[i].dx,
-                y: p.y + offsets[i].dy
-            }));
-
-            const tracePath = (pts: {x: number, y: number}[], close: boolean) => {
+            const traceBuf = (bx: Float64Array, by: Float64Array, len: number, close: boolean) => {
                 ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                if (pts.length === 2) {
-                    ctx.lineTo(pts[1].x, pts[1].y);
+                ctx.moveTo(bx[0], by[0]);
+                if (len === 2) {
+                    ctx.lineTo(bx[1], by[1]);
                 } else {
-                    // Catmull-Rom to Bezier for smooth curves through all points
-                    for (let i = 0; i < pts.length - 1; i++) {
-                        const p0 = pts[Math.max(0, i - 1)];
-                        const p1 = pts[i];
-                        const p2 = pts[Math.min(pts.length - 1, i + 1)];
-                        const p3 = pts[Math.min(pts.length - 1, i + 2)];
-
-                        const tension = 0.3;
-                        const cp1x = p1.x + (p2.x - p0.x) * tension;
-                        const cp1y = p1.y + (p2.y - p0.y) * tension;
-                        const cp2x = p2.x - (p3.x - p1.x) * tension;
-                        const cp2y = p2.y - (p3.y - p1.y) * tension;
-
-                        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+                    for (let i = 0; i < len - 1; i++) {
+                        const i0 = i > 0 ? i - 1 : 0;
+                        const i2 = i + 1 < len ? i + 1 : len - 1;
+                        const i3 = i + 2 < len ? i + 2 : len - 1;
+                        const cp1x = bx[i] + (bx[i2] - bx[i0]) * 0.3;
+                        const cp1y = by[i] + (by[i2] - by[i0]) * 0.3;
+                        const cp2x = bx[i2] - (bx[i3] - bx[i]) * 0.3;
+                        const cp2y = by[i2] - (by[i3] - by[i]) * 0.3;
+                        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx[i2], by[i2]);
                     }
                 }
                 if (close) ctx.closePath();
@@ -216,21 +229,24 @@ export default function App() {
 
             if (style === 'filled' || style === 'opaque-outline') {
                 ctx.fillStyle = style === 'filled' ? layerColor : theme.background;
-                tracePath(perturbedPoints, true);
+                traceBuf(_px, _py, n, true);
                 ctx.fill();
             }
 
             ctx.strokeStyle = style === 'filled' ? theme.stroke : theme.strokeLight;
             ctx.lineWidth = lineWidth;
 
-            // Single clean stroke pass (second pass with slight offset for hand-drawn feel)
-            const passes = style === 'filled' ? 1 : 2;
-            for (let pass = 0; pass < passes; pass++) {
-                const passPoints = pass === 0 ? perturbedPoints : perturbedPoints.map((p, i) => ({
-                    x: p.x + offsets[i].dx * 0.3,
-                    y: p.y + offsets[i].dy * 0.3
-                }));
-                tracePath(passPoints, style !== 'line');
+            // First stroke pass
+            traceBuf(_px, _py, n, style !== 'line');
+            ctx.stroke();
+
+            // Second pass with slight offset for hand-drawn feel (non-filled only)
+            if (style !== 'filled') {
+                for (let i = 0; i < n; i++) {
+                    _px[i] = points[i].x + _ox[i] * 1.3;
+                    _py[i] = points[i].y + _oy[i] * 1.3;
+                }
+                traceBuf(_px, _py, n, style !== 'line');
                 ctx.stroke();
             }
         };
@@ -250,6 +266,7 @@ export default function App() {
             let r2 = Math.max(0, (l + 1 + offset) * config.spread);
 
             if (r2 <= 0) continue;
+            if (r1 > maxR) continue; // Skip layers entirely outside viewport
 
             // Reactive Bulge: if pointer is near this layer, expand it slightly
             const midR = (r1 + r2) / 2;
@@ -277,7 +294,9 @@ export default function App() {
             ctx.fill();
 
             // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
+            // spinVariance adds per-layer speed variation (seeded so it's stable)
+            const layerSpinFactor = 1 + (mulberry32(config.seed + absL * 777)() - 0.5) * config.spinVariance;
+            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1)) * layerSpinFactor;
 
             // Draw separator ring at outer boundary
             ctx.beginPath();
@@ -346,12 +365,27 @@ export default function App() {
 
         ctx.restore();
 
-        // Add subtle grain overlay (seeded for stability)
-        const grainRng = mulberry32(Math.floor(now * 0.001));
-        ctx.fillStyle = theme.grain;
-        for(let i = 0; i < 1200; i++) {
-            ctx.fillRect(grainRng() * width, grainRng() * height, 1.5, 1.5);
+        // Add subtle grain overlay using offscreen canvas (pre-rendered)
+        const grainSeed = Math.floor(now * 0.001);
+        if (!grainCanvasRef.current || grainSeedRef.current !== grainSeed) {
+            if (!grainCanvasRef.current) {
+                grainCanvasRef.current = document.createElement('canvas');
+            }
+            const gc = grainCanvasRef.current;
+            gc.width = width;
+            gc.height = height;
+            const gctx = gc.getContext('2d');
+            if (gctx) {
+                gctx.clearRect(0, 0, width, height);
+                gctx.fillStyle = theme.grain;
+                const grainRng = mulberry32(grainSeed);
+                for (let i = 0; i < 800; i++) {
+                    gctx.fillRect(grainRng() * width, grainRng() * height, 1.5, 1.5);
+                }
+            }
+            grainSeedRef.current = grainSeed;
         }
+        ctx.drawImage(grainCanvasRef.current, 0, 0);
 
         isDirtyRef.current = false;
     }, []);

@@ -17,3 +17,4 @@ export { default as guillochePatterns } from './guilloche';
 export { default as fractalPatterns } from './fractal';
 export { default as spiralPatterns } from './spirals';
 export { default as harmonographPatterns } from './harmonograph';
+export { default as truchetPatterns } from './truchet';
