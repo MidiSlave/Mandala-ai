@@ -1,6 +1,117 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns } from './patterns';
+import type { PathStyle, PatternSet } from './patterns';
+
+// --- Color Theme System ---
+interface ColorTheme {
+    name: string;
+    background: string;
+    colors: string[];        // 3-5 colors for fills, picked per-layer
+    stroke: string;          // stroke color (with alpha)
+    strokeLight: string;     // lighter stroke for outlines
+    grain: string;           // grain overlay color
+    centerDark: string;      // center vanishing point color (rgba)
+}
+
+const COLOR_THEMES: ColorTheme[] = [
+    {
+        name: 'Monochrome',
+        background: '#EBE7E0',
+        colors: ['#1A1818'],
+        stroke: 'rgba(26, 24, 24, 0.9)',
+        strokeLight: 'rgba(26, 24, 24, 0.6)',
+        grain: 'rgba(0,0,0,0.03)',
+        centerDark: '26, 24, 24',
+    },
+    {
+        name: 'Pastel',
+        background: '#FFF6E3',
+        colors: ['#9B8A9E', '#7BA69E', '#C4889B', '#B08D57', '#6B7FA6'],
+        stroke: 'rgba(100, 80, 100, 0.85)',
+        strokeLight: 'rgba(100, 80, 100, 0.5)',
+        grain: 'rgba(80,60,80,0.025)',
+        centerDark: '100, 80, 100',
+    },
+    {
+        name: 'Neon',
+        background: '#070014',
+        colors: ['#EA00D9', '#0ABDC6', '#39FF14', '#FF0055', '#FFD700'],
+        stroke: 'rgba(255, 255, 255, 0.7)',
+        strokeLight: 'rgba(255, 255, 255, 0.4)',
+        grain: 'rgba(255,255,255,0.02)',
+        centerDark: '200, 0, 200',
+    },
+    {
+        name: 'Sepia',
+        background: '#FDFBD4',
+        colors: ['#704214', '#8B4513', '#A2574F', '#5C3A1E', '#8E6B3D'],
+        stroke: 'rgba(80, 48, 16, 0.85)',
+        strokeLight: 'rgba(80, 48, 16, 0.5)',
+        grain: 'rgba(80,48,16,0.025)',
+        centerDark: '80, 48, 16',
+    },
+    {
+        name: 'Sunset',
+        background: '#272344',
+        colors: ['#FA9C32', '#C2435F', '#E44C1D', '#FFD166', '#5E508D'],
+        stroke: 'rgba(250, 200, 150, 0.7)',
+        strokeLight: 'rgba(250, 200, 150, 0.4)',
+        grain: 'rgba(255,200,100,0.02)',
+        centerDark: '200, 100, 50',
+    },
+    {
+        name: 'Ocean',
+        background: '#0A1628',
+        colors: ['#457F9A', '#084596', '#1CA9C9', '#3B5F7F', '#FCC40F'],
+        stroke: 'rgba(100, 180, 220, 0.7)',
+        strokeLight: 'rgba(100, 180, 220, 0.4)',
+        grain: 'rgba(100,180,220,0.02)',
+        centerDark: '50, 100, 150',
+    },
+    {
+        name: 'Forest',
+        background: '#1A2E1A',
+        colors: ['#8A9A5B', '#2E6F40', '#B7410E', '#B2C495', '#6B8E23'],
+        stroke: 'rgba(150, 180, 100, 0.7)',
+        strokeLight: 'rgba(150, 180, 100, 0.4)',
+        grain: 'rgba(100,150,80,0.02)',
+        centerDark: '40, 80, 40',
+    },
+    {
+        name: 'Royal',
+        background: '#0D1B2A',
+        colors: ['#CFB53B', '#B87333', '#F7E7CE', '#8B7536', '#D4AF37'],
+        stroke: 'rgba(200, 180, 60, 0.7)',
+        strokeLight: 'rgba(200, 180, 60, 0.4)',
+        grain: 'rgba(200,180,60,0.02)',
+        centerDark: '160, 140, 40',
+    },
+    {
+        name: 'Vaporwave',
+        background: '#1A0A2E',
+        colors: ['#FF6EC7', '#00E5FF', '#C4A1FF', '#FFB6C1', '#7B68EE'],
+        stroke: 'rgba(255, 110, 199, 0.7)',
+        strokeLight: 'rgba(255, 110, 199, 0.4)',
+        grain: 'rgba(200,100,255,0.02)',
+        centerDark: '150, 50, 200',
+    },
+    {
+        name: 'Terracotta',
+        background: '#F5E6D3',
+        colors: ['#C75B39', '#3F4FA1', '#D4A843', '#8B3A2F', '#1E2456'],
+        stroke: 'rgba(140, 60, 40, 0.85)',
+        strokeLight: 'rgba(140, 60, 40, 0.5)',
+        grain: 'rgba(100,50,30,0.025)',
+        centerDark: '140, 60, 40',
+    },
+];
+
+const ALL_PATTERN_SETS: PatternSet[] = [
+    aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
+    lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns
+];
 
 // --- Seeded RNG ---
 function mulberry32(a: number) {
@@ -10,6 +121,25 @@ function mulberry32(a: number) {
       t ^= t + Math.imul(t ^ t >>> 7, t | 61);
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
+}
+
+// --- Fullscreen helpers (cross-browser + iPad Safari) ---
+function getFullscreenElement(): Element | null {
+    return document.fullscreenElement
+        || (document as any).webkitFullscreenElement
+        || null;
+}
+
+function requestFullscreen(el: HTMLElement): Promise<void> {
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if ((el as any).webkitRequestFullscreen) return (el as any).webkitRequestFullscreen();
+    return Promise.reject(new Error('Fullscreen API not supported'));
+}
+
+function exitFullscreen(): Promise<void> {
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if ((document as any).webkitExitFullscreen) return (document as any).webkitExitFullscreen();
+    return Promise.reject(new Error('Fullscreen API not supported'));
 }
 
 // --- Types & Config ---
@@ -23,30 +153,44 @@ interface AppConfig {
     twist: number;
     seed: number;
     spinSpeed: number;
+    spinVariance: number;
     waveSpeed: number;
+    zoomSpeed: number;
     zoom: number;
     mode: PatternMode;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
     symmetry: 12,
-    layers: 6,
+    layers: 12,
     spread: 70,
-    roughness: 2.0,
+    roughness: 0,
     twist: 0,
     seed: 42,
     spinSpeed: 1,
+    spinVariance: 0.8,
     waveSpeed: 1,
     zoom: 0,
     mode: 'cultural'
 };
 
+// Exponential radius mapping: maps normalized t in [0,1] to radius
+// power > 1 compresses inner rings together (tunnel effect)
+const TUNNEL_POWER = 2.5;
+
+function tunnelRadius(t: number, maxR: number): number {
+    return maxR * Math.pow(Math.max(0, t), TUNNEL_POWER);
+}
+
 export default function App() {
+    const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [uiVisible, setUiVisible] = useState(true);
     const [isAutoAnimating, setIsAutoAnimating] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
     const [spinSpeed, setSpinSpeed] = useState(DEFAULT_CONFIG.spinSpeed);
+    const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [patternMode, setPatternMode] = useState<PatternMode>(DEFAULT_CONFIG.mode);
 
@@ -55,15 +199,15 @@ export default function App() {
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
     const wavePhaseRef = useRef(0);
+    const roughnessPhaseRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
-    
+
     // Interaction refs
     const touchesRef = useRef<Map<number, {x: number, y: number}>>(new Map());
     const lastTapRef = useRef<number>(0);
     const initialPinchDistRef = useRef<number | null>(null);
-    const initialPinchAngleRef = useRef<number | null>(null);
     const initialConfigRef = useRef<AppConfig | null>(null);
-    
+
     // Pointer reactivity
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
@@ -77,7 +221,6 @@ export default function App() {
 
         const width = window.innerWidth;
         const height = window.innerHeight;
-        const dpr = window.devicePixelRatio || 1;
 
         // Ease pointer for smooth reactive bulging
         const dx = pointerRef.current.x - easedPointerRef.current.x;
@@ -92,6 +235,8 @@ export default function App() {
         if (autoAnimateRef.current) {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
+            configRef.current.zoom += dt * configRef.current.zoomSpeed;
+            roughnessPhaseRef.current += dt * 0.8;
             isDirtyRef.current = true;
         }
 
@@ -116,17 +261,24 @@ export default function App() {
         const layers = Math.max(1, Math.floor(config.layers));
         const angleStep = (Math.PI * 2) / sym;
 
+        // Max radius covers the screen diagonal
+        const maxR = Math.hypot(width, height) / 2 + 50;
+
         let activePointerDist = Math.hypot(easedPointerRef.current.x - width/2, easedPointerRef.current.y - height/2);
         let isBulgeActive = pointerRef.current.active;
 
         if (autoAnimateRef.current && !pointerRef.current.active) {
-            const maxDist = Math.max(width, height) / 2 + config.spread * 2;
+            const maxDist = maxR;
             wavePhaseRef.current = wavePhaseRef.current % maxDist;
             if (wavePhaseRef.current < 0) wavePhaseRef.current += maxDist;
             activePointerDist = wavePhaseRef.current;
             isBulgeActive = true;
         }
 
+        // --- Infinite tunnel: continuous conveyor belt ---
+        // Each layer has a unique `id`. Position t = (id - zoom) / N is continuous in zoom.
+        // As zoom increases, layers slide inward. New layers appear at the outer edge,
+        // old layers vanish into the center. Pattern identity is tied to `id`, never changes.
         const zoom = config.zoom;
         const shift = Math.floor(zoom);
         const offset = zoom - shift; // [0, 1)
@@ -164,7 +316,17 @@ export default function App() {
             return { x: r * Math.cos(a), y: r * Math.sin(a) };
         };
 
-        type PathStyle = 'filled' | 'opaque-outline' | 'outline' | 'line';
+        const patternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
+
+        // Helper: Draw a rough path (theme-aware)
+        const theme = themeRef.current;
+        let layerColor = theme.colors[0]; // updated per-layer
+
+        // Roughness modulation: sine wave adds animated roughness on top of the base setting
+        const roughnessModulation = autoAnimateRef.current
+            ? Math.abs(Math.sin(roughnessPhaseRef.current)) * 3.0
+            : 0;
+        const effectiveRoughness = config.roughness + roughnessModulation;
 
         // Adaptive line width based on layer band thickness
         const getLineWidth = (r1: number, r2: number) => {
@@ -608,11 +770,11 @@ export default function App() {
             const midR = (r1 + r2) / 2;
             const distToLayer = Math.abs(activePointerDist - midR);
             let bulge = 0;
-            if (isBulgeActive && distToLayer < config.spread * 1.5) {
-                bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
+            if (isBulgeActive && distToLayer < thickness * 2) {
+                bulge = (1 - distToLayer / (thickness * 2)) * (thickness * 0.5);
             }
             r2 += bulge;
-            if (r1 > 0) r1 += bulge * 0.5;
+            if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
             const lw = getLineWidth(r1, r2);
 
@@ -629,8 +791,11 @@ export default function App() {
             ctx.arc(0, 0, r2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Twist: Inner layers twist more than outer layers
-            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1));
+            // Per-layer twist with variance:
+            // Each layer spins at its own speed = base * direction * (1 + variance * offset)
+            const twistMag = 1 / (t2 * 3 + 0.3);
+            const layerSpeedMul = spinDir * (1.0 + config.spinVariance * speedOffset);
+            const layerTwist = config.twist * twistMag * layerSpeedMul;
 
             // Draw separator ring at outer boundary
             ctx.beginPath();
@@ -649,8 +814,34 @@ export default function App() {
                 } else {
                     drawCulturalCell(type, r1, r2, layerTwist, filled, layerRng, lw);
                 }
+            }
 
-                ctx.restore();
+            ctx.restore();
+        }
+
+        // Dense center vanishing point — inside the innermost visible layer
+        const innermostT = Math.max(0, (firstId - zoom) / N);
+        const coreR = tunnelRadius(innermostT, maxR);
+        if (coreR > 0.5) {
+            const cd = theme.centerDark;
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+            grad.addColorStop(0, `rgba(${cd}, 0.85)`);
+            grad.addColorStop(0.4, `rgba(${cd}, 0.5)`);
+            grad.addColorStop(0.8, `rgba(${cd}, 0.15)`);
+            grad.addColorStop(1, `rgba(${cd}, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+            ctx.fill();
+
+            const coreRng = mulberry32(config.seed + firstId * 7);
+            ctx.strokeStyle = `rgba(${cd}, 0.3)`;
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < 6; i++) {
+                const rr = coreR * (0.1 + coreRng() * 0.8);
+                ctx.beginPath();
+                ctx.arc(0, 0, rr, 0, Math.PI * 2);
+                ctx.stroke();
             }
 
             ctx.restore(); // Restore clipping
@@ -710,25 +901,37 @@ export default function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // --- Fullscreen Change Listener (standard + webkit) ---
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            setIsFullscreen(!!getFullscreenElement());
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+        };
+    }, []);
+
     // --- Gesture Handlers ---
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const getDistance = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        const getAngle = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
         const onTouchStart = (e: TouchEvent) => {
             e.preventDefault();
             const now = Date.now();
-            
+
             if (e.touches.length === 1) {
                 if (now - lastTapRef.current < 300) {
                     configRef.current.seed = Math.random() * 10000;
                     isDirtyRef.current = true;
                 }
                 lastTapRef.current = now;
-                
+
                 pointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, active: true };
                 easedPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             }
@@ -744,9 +947,8 @@ export default function App() {
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 initialPinchDistRef.current = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
-                initialPinchAngleRef.current = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
                 initialConfigRef.current = { ...configRef.current };
-                pointerRef.current.active = false; // Disable single-pointer bulge during pinch
+                pointerRef.current.active = false;
             } else if (e.touches.length === 1) {
                 initialConfigRef.current = { ...configRef.current };
             }
@@ -754,7 +956,7 @@ export default function App() {
 
         const onTouchMove = (e: TouchEvent) => {
             e.preventDefault();
-            
+
             if (e.touches.length === 1) {
                 pointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, active: true };
             }
@@ -762,33 +964,24 @@ export default function App() {
             if (!initialConfigRef.current) return;
 
             if (e.touches.length === 1) {
-                // 1 Finger Pan -> Twist (X) and Symmetry (Y)
                 const touch = e.touches[0];
                 const startTouch = touchesRef.current.get(touch.identifier);
                 if (startTouch) {
-                    const dx = touch.clientX - startTouch.x;
-                    const dy = touch.clientY - startTouch.y;
-                    
-                    configRef.current.twist = initialConfigRef.current.twist + dx * 0.01;
-                    configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - dy * 0.05));
+                    const tdx = touch.clientX - startTouch.x;
+                    const tdy = touch.clientY - startTouch.y;
+
+                    configRef.current.twist = initialConfigRef.current.twist + tdx * 0.01;
+                    configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - tdy * 0.05));
                     isDirtyRef.current = true;
                 }
             } else if (e.touches.length === 2) {
-                // 2 Fingers -> Pinch (Spread) and Rotate (Roughness)
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 const currentDist = getDistance({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
-                const currentAngle = getAngle({x: t1.clientX, y: t1.clientY}, {x: t2.clientX, y: t2.clientY});
 
-                if (initialPinchDistRef.current && initialPinchAngleRef.current) {
+                if (initialPinchDistRef.current) {
                     const scale = currentDist / initialPinchDistRef.current;
-                    configRef.current.zoom = initialConfigRef.current.zoom + Math.log2(scale);
-
-                    let angleDiff = currentAngle - initialPinchAngleRef.current;
-                    if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                    if (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                    
-                    configRef.current.roughness = Math.max(0, Math.min(10, initialConfigRef.current.roughness + angleDiff * 5));
+                    configRef.current.zoom = initialConfigRef.current.zoom - Math.log2(scale) * 2;
                     isDirtyRef.current = true;
                 }
             }
@@ -804,12 +997,11 @@ export default function App() {
             }
             if (e.touches.length < 2) {
                 initialPinchDistRef.current = null;
-                initialPinchAngleRef.current = null;
             }
             if (e.touches.length === 0) {
                 initialConfigRef.current = null;
                 pointerRef.current.active = false;
-                isDirtyRef.current = true; 
+                isDirtyRef.current = true;
             }
         };
 
@@ -824,14 +1016,14 @@ export default function App() {
         };
         const onMouseMove = (e: MouseEvent) => {
             pointerRef.current = { x: e.clientX, y: e.clientY, active: true };
-            
+
             if (!isMouseDown || !initialConfigRef.current) return;
             const startTouch = touchesRef.current.get(0);
             if (startTouch) {
-                const dx = e.clientX - startTouch.x;
-                const dy = e.clientY - startTouch.y;
-                configRef.current.twist = initialConfigRef.current.twist + dx * 0.01;
-                configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - dy * 0.05));
+                const mdx = e.clientX - startTouch.x;
+                const mdy = e.clientY - startTouch.y;
+                configRef.current.twist = initialConfigRef.current.twist + mdx * 0.01;
+                configRef.current.symmetry = Math.max(4, Math.min(48, initialConfigRef.current.symmetry - mdy * 0.05));
                 isDirtyRef.current = true;
             }
         };
@@ -843,7 +1035,7 @@ export default function App() {
             isDirtyRef.current = true;
         };
         const onWheel = (e: WheelEvent) => {
-            configRef.current.zoom -= e.deltaY * 0.002;
+            configRef.current.zoom += e.deltaY * 0.003;
             isDirtyRef.current = true;
         };
 
@@ -851,7 +1043,7 @@ export default function App() {
         canvas.addEventListener('touchmove', onTouchMove, { passive: false });
         canvas.addEventListener('touchend', onTouchEnd, { passive: false });
         canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
-        
+
         canvas.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
@@ -863,7 +1055,7 @@ export default function App() {
             canvas.removeEventListener('touchmove', onTouchMove);
             canvas.removeEventListener('touchend', onTouchEnd);
             canvas.removeEventListener('touchcancel', onTouchEnd);
-            
+
             canvas.removeEventListener('mousedown', onMouseDown);
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
@@ -883,7 +1075,6 @@ export default function App() {
 
     const handleRandomize = () => {
         configRef.current.seed = Math.random() * 10000;
-        // Keep the user's selected layer count instead of randomizing it
         isDirtyRef.current = true;
     };
 
@@ -891,6 +1082,17 @@ export default function App() {
         const next = !isAutoAnimating;
         setIsAutoAnimating(next);
         autoAnimateRef.current = next;
+    };
+
+    // Use onClick (not onPointerDown) — fullscreen API requires a trusted
+    // user activation event, and onClick is the most reliable across browsers
+    const toggleFullscreen = () => {
+        if (getFullscreenElement()) {
+            exitFullscreen().catch(() => {});
+        } else {
+            const el = containerRef.current || document.documentElement;
+            requestFullscreen(el).catch(() => {});
+        }
     };
 
     const handleLayerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -906,17 +1108,36 @@ export default function App() {
         configRef.current.spinSpeed = val;
     };
 
+    const handleSpinVarianceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setSpinVariance(val);
+        configRef.current.spinVariance = val;
+    };
+
     const handleWaveSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseFloat(e.target.value);
         setWaveSpeed(val);
         configRef.current.waveSpeed = val;
     };
 
-    return (
-        <div className="relative w-screen h-screen overflow-hidden bg-[#EBE7E0] text-[#1A1818] font-sans selection:bg-black/10 touch-none">
-            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
+    const handleZoomSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setZoomSpeed(val);
+        configRef.current.zoomSpeed = val;
+    };
 
-            <button 
+    const handleRoughnessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        setRoughness(val);
+        configRef.current.roughness = val;
+        isDirtyRef.current = true;
+    };
+
+    return (
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden font-sans selection:bg-black/10" style={{ background: COLOR_THEMES[themeIndex].background, color: COLOR_THEMES[themeIndex].colors[0] }}>
+            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair touch-none" />
+
+            <button
                 onPointerDown={(e) => { e.stopPropagation(); setUiVisible(v => !v); }}
                 className="absolute top-6 left-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
                 title="Toggle Controls"
@@ -924,24 +1145,36 @@ export default function App() {
                 {uiVisible ? <X size={24} /> : <Settings2 size={24} />}
             </button>
 
-            <button 
-                onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
-                className="absolute top-6 right-6 z-50 p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
-                title="Save Image"
-            >
-                <Download size={24} />
-            </button>
+            <div className="absolute top-6 right-6 z-50 flex gap-2">
+                <button
+                    onClick={toggleFullscreen}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
+                    title="Toggle Fullscreen"
+                >
+                    {isFullscreen ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
+                </button>
+                <button
+                    onPointerDown={(e) => { e.stopPropagation(); handleSave(); }}
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
+                    title="Save Image"
+                >
+                    <Download size={24} />
+                </button>
+            </div>
 
             <AnimatePresence>
                 {uiVisible && (
-                    <motion.div 
-                        initial={{ y: 50, opacity: 0, scale: 0.95 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: 50, opacity: 0, scale: 0.95 }}
+                    <motion.div
+                        drag
+                        dragMomentum={false}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-6 shadow-2xl shadow-black/10 pointer-events-none"
+                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
+                        style={{ zIndex: 40 }}
                     >
-                        <button 
+                        <button
                             onPointerDown={(e) => { e.stopPropagation(); setUiVisible(false); }}
                             className="absolute top-4 right-4 p-2 text-black/40 hover:text-black transition-colors pointer-events-auto touch-auto"
                         >
@@ -992,77 +1225,153 @@ export default function App() {
                                 <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
                             </div>
                             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
-                                <RotateCw className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Rotate 2 Fingers</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Roughness</span>
-                            </div>
-                            <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
                                 <Shuffle className="mb-2 text-black/70" size={24} />
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Double Tap</span>
                                 <span className="text-[10px] text-black/50 text-center mt-1">Randomize Pattern</span>
                             </div>
                         </div>
-                        
+
                         <div className="text-center mb-4">
                             <p className="text-[10px] text-black/60 uppercase tracking-widest font-bold">Hover / Touch to expand layers</p>
                         </div>
 
-                        <div className="mb-6 pointer-events-auto touch-auto">
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-black/70 flex items-center gap-2">
-                                    <Layers size={14} />
+                        <div className="flex gap-4 mb-4 pointer-events-auto touch-auto">
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    <Layers size={12} />
                                     Layers: {layerCount}
                                 </label>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="30"
+                                    value={layerCount}
+                                    onChange={handleLayerChange}
+                                    className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                />
                             </div>
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="30" 
-                                value={layerCount} 
-                                onChange={handleLayerChange}
-                                className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                            />
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    Roughness: {roughness.toFixed(1)}
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="6"
+                                    step="0.1"
+                                    value={roughness}
+                                    onChange={handleRoughnessChange}
+                                    className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mb-4 pointer-events-auto touch-auto">
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    Pattern
+                                </label>
+                                <select
+                                    value={patternSetIndex}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setPatternSetIndex(val);
+                                        patternSetRef.current = val === -1 ? null : ALL_PATTERN_SETS[val];
+                                        isDirtyRef.current = true;
+                                    }}
+                                    className="w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-black/20"
+                                >
+                                    <option value={-1}>Mix (All)</option>
+                                    {ALL_PATTERN_SETS.map((ps, i) => (
+                                        <option key={ps.name} value={i}>{ps.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-1 mb-1">
+                                    <Palette size={12} />
+                                    Color
+                                </label>
+                                <select
+                                    value={themeIndex}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setThemeIndex(val);
+                                        themeRef.current = COLOR_THEMES[val];
+                                        isDirtyRef.current = true;
+                                    }}
+                                    className="w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-black/20"
+                                >
+                                    {COLOR_THEMES.map((t, i) => (
+                                        <option key={t.name} value={i}>{t.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {isAutoAnimating && (
-                            <div className="flex gap-4 mb-6 pointer-events-auto touch-auto">
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                        Spin Speed
-                                    </label>
-                                    <input 
-                                        type="range" min="-3" max="3" step="0.1" 
-                                        value={spinSpeed} onChange={handleSpinSpeedChange}
-                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                                    />
+                            <div className="space-y-4 mb-6 pointer-events-auto touch-auto">
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Spin Speed
+                                        </label>
+                                        <input
+                                            type="range" min="-10" max="10" step="0.1"
+                                            value={spinSpeed} onChange={handleSpinSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Spin Variance
+                                        </label>
+                                        <input
+                                            type="range" min="0" max="3" step="0.05"
+                                            value={spinVariance} onChange={handleSpinVarianceChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
-                                        Wave Speed
-                                    </label>
-                                    <input 
-                                        type="range" min="0" max="3" step="0.1" 
-                                        value={waveSpeed} onChange={handleWaveSpeedChange}
-                                        className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
-                                    />
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Wave Speed
+                                        </label>
+                                        <input
+                                            type="range" min="0" max="10" step="0.1"
+                                            value={waveSpeed} onChange={handleWaveSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-black/70 flex items-center gap-2 mb-2">
+                                            Zoom Speed
+                                        </label>
+                                        <input
+                                            type="range" min="-2" max="2" step="0.05"
+                                            value={zoomSpeed} onChange={handleZoomSpeedChange}
+                                            className="w-full h-2 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
 
-                        <div className="pointer-events-auto flex justify-center gap-3">
-                            <button 
+                        <div className="pointer-events-auto flex justify-center gap-2 sm:gap-3 sticky bottom-0 pt-3 pb-1 bg-white/90 backdrop-blur-xl -mx-4 sm:-mx-6 px-4 sm:px-6">
+                            <button
                                 onPointerDown={(e) => { e.stopPropagation(); toggleAutoAnimate(); }}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
+                                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors shadow-lg active:scale-95 pointer-events-auto touch-auto ${isAutoAnimating ? 'bg-black/10 text-black shadow-black/5' : 'bg-black text-white shadow-black/20 hover:bg-black/80'}`}
                             >
-                                {isAutoAnimating ? <Pause size={18} /> : <Play size={18} />}
+                                {isAutoAnimating ? <Pause size={16} /> : <Play size={16} />}
                                 {isAutoAnimating ? 'Stop' : 'Animate'}
                             </button>
-                            <button 
+                            <button
                                 onPointerDown={(e) => { e.stopPropagation(); handleRandomize(); }}
-                                className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
+                                className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-black text-white rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors shadow-lg shadow-black/20 active:scale-95 pointer-events-auto touch-auto"
                             >
-                                <Shuffle size={18} />
-                                Randomize Now
+                                <Shuffle size={16} />
+                                Randomize
                             </button>
                         </div>
                     </motion.div>

@@ -1,0 +1,9 @@
+{
+  "name": "Mandala Generator",
+  "short_name": "Mandala",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EBE7E0",
+  "theme_color": "#1A1818",
+  "orientation": "any"
+}
