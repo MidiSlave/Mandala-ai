@@ -38,7 +38,6 @@ export default function App() {
     const isDirtyRef = useRef(true);
     const autoAnimateRef = useRef(false);
     const wavePhaseRef = useRef(0);
-    const roughnessPhaseRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
 
     // Interaction refs
@@ -54,6 +53,19 @@ export default function App() {
     // Offscreen grain canvas (pre-rendered, reused across frames)
     const grainCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const grainSeedRef = useRef<number>(-1);
+    const grainDimsRef = useRef({ w: 0, h: 0 });
+
+    // Pre-allocated buffers for drawSmoothPath (avoid GC pressure)
+    const smoothBufRef = useRef({
+        ox: new Float64Array(200),
+        oy: new Float64Array(200),
+        px: new Float64Array(200),
+        py: new Float64Array(200),
+    });
+    // Pre-allocated buffer for mapUV point results
+    const uvBufRef = useRef<{ x: number, y: number }[]>(
+        Array.from({ length: 200 }, () => ({ x: 0, y: 0 }))
+    );
 
 
     // --- Drawing Logic ---
@@ -87,7 +99,6 @@ export default function App() {
             configRef.current.twist += 0.3 * dt * configRef.current.spinSpeed;
             wavePhaseRef.current += 250 * dt * configRef.current.waveSpeed;
             configRef.current.zoom += dt * configRef.current.zoomSpeed;
-            roughnessPhaseRef.current += dt * 0.8;
             isDirtyRef.current = true;
         }
 
@@ -162,21 +173,18 @@ export default function App() {
         }
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
-        const mapUV = (u: number, v: number, r1: number, r2: number, layerTwist: number) => {
+        // Writes directly into target object to avoid allocations
+        const mapUVInto = (u: number, v: number, r1: number, r2: number, layerTwist: number, out: {x: number, y: number}) => {
             const r = r1 + v * (r2 - r1);
             const a = (u * angleStep) + layerTwist;
-            return { x: r * Math.cos(a), y: r * Math.sin(a) };
+            out.x = r * Math.cos(a);
+            out.y = r * Math.sin(a);
         };
+        const uvBuf = uvBufRef.current;
 
         const patternSet = patternSetRef.current;
 
         let layerColor = theme.colors[0]; // updated per-layer
-
-        // Roughness modulation: sine wave adds animated roughness on top of the base setting
-        const roughnessModulation = autoAnimateRef.current
-            ? Math.abs(Math.sin(roughnessPhaseRef.current)) * 3.0
-            : 0;
-        const effectiveRoughness = config.roughness + roughnessModulation;
 
         // Adaptive line width based on layer band thickness
         const getLineWidth = (r1: number, r2: number) => {
@@ -185,14 +193,11 @@ export default function App() {
         };
 
         // Helper: Draw a smooth bezier curve through points
-        // Pre-allocated buffers to reduce GC pressure (max 200 points per path)
-        const _ox = new Float64Array(200);
-        const _oy = new Float64Array(200);
-        const _px = new Float64Array(200);
-        const _py = new Float64Array(200);
+        // Use pre-allocated ref buffers to avoid GC pressure
+        const { ox: _ox, oy: _oy, px: _px, py: _py } = smoothBufRef.current;
 
-        const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number) => {
-            const n = points.length;
+        const drawSmoothPath = (points: {x: number, y: number}[], style: PathStyle, rng: () => number, lw?: number, count?: number) => {
+            const n = count ?? points.length;
             if (n < 2) return;
             const lineWidth = lw ?? 1.5;
             const rough = config.roughness;
@@ -314,8 +319,11 @@ export default function App() {
                     ? patternSet
                     : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                    const pts = uvPoints.map(p => mapUV(p[0], p[1], r1, r2, layerTwist));
-                    drawSmoothPath(pts, style, layerRng, lw);
+                    const len = uvPoints.length;
+                    for (let j = 0; j < len; j++) {
+                        mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, uvBuf[j]);
+                    }
+                    drawSmoothPath(uvBuf, style, layerRng, lw, len);
                 };
                 const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
                 activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
@@ -367,13 +375,19 @@ export default function App() {
 
         // Add subtle grain overlay using offscreen canvas (pre-rendered)
         const grainSeed = Math.floor(now * 0.001);
-        if (!grainCanvasRef.current || grainSeedRef.current !== grainSeed) {
+        const grainDims = grainDimsRef.current;
+        const needsGrainResize = grainDims.w !== width || grainDims.h !== height;
+        if (!grainCanvasRef.current || grainSeedRef.current !== grainSeed || needsGrainResize) {
             if (!grainCanvasRef.current) {
                 grainCanvasRef.current = document.createElement('canvas');
             }
             const gc = grainCanvasRef.current;
-            gc.width = width;
-            gc.height = height;
+            if (needsGrainResize) {
+                gc.width = width;
+                gc.height = height;
+                grainDims.w = width;
+                grainDims.h = height;
+            }
             const gctx = gc.getContext('2d');
             if (gctx) {
                 gctx.clearRect(0, 0, width, height);
