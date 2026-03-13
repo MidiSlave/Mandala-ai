@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, RotateCw, Shuffle, Download, Play, Pause, Layers, Sparkles, Palette, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
@@ -211,6 +211,7 @@ export default function App() {
     // Pointer reactivity
     const pointerRef = useRef({ x: -1000, y: -1000, active: false });
     const easedPointerRef = useRef({ x: -1000, y: -1000 });
+
 
     // --- Drawing Logic ---
     const draw = useCallback(() => {
@@ -1145,11 +1146,11 @@ export default function App() {
                 {uiVisible ? <X size={24} /> : <Settings2 size={24} />}
             </button>
 
-            <div className="absolute top-6 right-6 z-50 flex gap-2">
+            <div className="absolute top-6 right-6 z-50 flex gap-2 pointer-events-auto touch-auto">
                 <button
                     onClick={toggleFullscreen}
-                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5 pointer-events-auto touch-auto"
-                    title="Toggle Fullscreen"
+                    className="p-3 rounded-full bg-white/80 backdrop-blur-md border border-black/10 text-black hover:bg-black hover:text-white transition-all duration-300 shadow-lg shadow-black/5"
+                    title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                 >
                     {isFullscreen ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
                 </button>
@@ -1171,7 +1172,7 @@ export default function App() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
+                        className="absolute top-4 sm:top-20 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[70vh] overflow-y-auto overscroll-contain bg-white/90 backdrop-blur-xl border border-black/10 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-black/10 pointer-events-auto touch-auto cursor-grab active:cursor-grabbing"
                         style={{ zIndex: 40 }}
                     >
                         <button
