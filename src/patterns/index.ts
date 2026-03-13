@@ -18,3 +18,8 @@ export { default as fractalPatterns } from './fractal';
 export { default as spiralPatterns } from './spirals';
 export { default as harmonographPatterns } from './harmonograph';
 export { default as truchetPatterns } from './truchet';
+export { default as islamicPatterns } from './islamic';
+export { default as opArtPatterns } from './opart';
+export { default as artNouveauPatterns } from './artnouveau';
+export { default as aboriginalPatterns } from './aboriginal';
+export { default as polynesianPatterns } from './polynesian';
