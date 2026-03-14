@@ -364,6 +364,8 @@ export default function App() {
             ctx.stroke();
 
             // Draw pattern cells (with adaptive symmetry)
+            // Icon layers with iconSequence: each slice shows a different icon
+            const iconSeq = liveConfig?.iconSequence;
             for (let i = 0; i < layerSym; i++) {
                 ctx.save();
                 ctx.rotate(i * layerAngleStep);
@@ -373,6 +375,12 @@ export default function App() {
                     : patternSet
                     ? patternSet
                     : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
+
+                // For icon layers, cycle through the icon sequence per slice
+                const sliceType = iconSeq && iconSeq.length > 0
+                    ? iconSeq[i % iconSeq.length]
+                    : type;
+
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
                     const len = uvPoints.length;
                     for (let j = 0; j < len; j++) {
@@ -381,7 +389,7 @@ export default function App() {
                     drawSmoothPath(uvBuf, style, layerRng, lw, len);
                 };
                 const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
-                activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
+                activeSet.draw(sliceType % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
 
                 ctx.restore();
             }

@@ -27,6 +27,8 @@ export interface LiveLayerConfig {
     roughness: number;   // sentiment-driven
     spinFactor: number;  // sentiment-driven
     themeIndex: number;   // color theme index
+    /** Icon motif indices for each symmetry slice (story-specific icon sequence) */
+    iconSequence?: number[];
 }
 
 /** Raw headline from news API */

@@ -805,3 +805,10 @@ export const THEME_ICONS: ThemeIcons = {
 
 /** Flat list of all icons for non-live mode browsing */
 export const ALL_ICONS: IconShape[] = Object.values(THEME_ICONS).flat();
+
+/** Lookup: icon name → index in ALL_ICONS */
+export const ICON_NAME_TO_INDEX: Record<string, number> = (() => {
+    const map: Record<string, number> = {};
+    ALL_ICONS.forEach((icon, i) => { map[icon.name] = i; });
+    return map;
+})();

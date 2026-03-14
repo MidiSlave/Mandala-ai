@@ -1,5 +1,6 @@
 import type { NewsTheme, Sentiment, ClassifiedHeadline, LiveLayerConfig } from './types';
-import { THEME_ICONS } from '../patterns/icons/data';
+import { THEME_ICONS, ALL_ICONS, ICON_NAME_TO_INDEX } from '../patterns/icons/data';
+import { headlineToIconSequence } from './icon-mapper';
 
 /** Index of iconPatterns in ALL_PATTERN_SETS */
 const ICON_PATTERN_INDEX = 29;
@@ -97,51 +98,77 @@ const THEME_ICON_OFFSETS: Record<string, number> = (() => {
     return offsets;
 })();
 
-/** Convert a classified headline into layer rendering config */
-export function headlineToLayerConfig(
+/**
+ * Build an icon sequence (as ALL_ICONS indices) for a headline.
+ * Uses keyword extraction to find story-specific icons.
+ * Falls back to theme icons if no keywords match.
+ */
+function buildIconSequence(headline: ClassifiedHeadline, seed: number): number[] {
+    const iconNames = headlineToIconSequence(headline.title, 12);
+
+    // Convert names to ALL_ICONS indices
+    const indices: number[] = [];
+    for (const name of iconNames) {
+        const idx = ICON_NAME_TO_INDEX[name];
+        if (idx !== undefined) indices.push(idx);
+    }
+
+    // If we got fewer than 3 icons from keywords, pad with theme icons
+    if (indices.length < 3) {
+        const themeOffset = THEME_ICON_OFFSETS[headline.theme] ?? THEME_ICON_OFFSETS.general ?? 0;
+        const themeCount = THEME_ICONS[headline.theme]?.length ?? 3;
+        for (let i = 0; indices.length < 6; i++) {
+            const idx = themeOffset + (i % themeCount);
+            if (!indices.includes(idx)) indices.push(idx);
+            if (i > themeCount * 2) break; // safety
+        }
+    }
+
+    return indices;
+}
+
+/**
+ * Convert a classified headline into TWO layer configs:
+ * 1. Icon layer — each symmetry slice shows a different story-specific icon
+ * 2. Pattern layer — theme-matched abstract pattern
+ */
+function headlineToLayerPair(
     headline: ClassifiedHeadline,
-    layerIndex: number,
+    pairIndex: number,
     seed: number,
-): LiveLayerConfig {
+): [LiveLayerConfig, LiveLayerConfig] {
     const patterns = THEME_PATTERNS[headline.theme] ?? THEME_PATTERNS.general;
     const colors = THEME_COLORS[headline.theme] ?? THEME_COLORS.general;
     const params = sentimentParams(headline.sentiment, headline.intensity);
 
-    const themeIndex = colors[layerIndex % colors.length];
+    const themeIndex = colors[pairIndex % colors.length];
+    const motifSeed = ((seed + pairIndex * 137) >>> 0) % 100;
 
-    // Deterministic motif selection based on seed + layer
-    const motifSeed = ((seed + layerIndex * 137) >>> 0) % 100;
+    // Build story-specific icon sequence
+    const iconSequence = buildIconSequence(headline, seed);
 
-    // Every 3rd layer uses an icon pattern for visual "readability"
-    const useIcon = layerIndex % 3 === 0;
+    // Icon layer: uses icon pattern set with per-slice icon sequence
+    const iconLayer: LiveLayerConfig = {
+        patternSetIndex: ICON_PATTERN_INDEX,
+        motif: iconSequence[0] ?? 0,
+        filled: Math.random() < params.filledBias,
+        roughness: params.roughness,
+        spinFactor: params.spinFactor,
+        themeIndex,
+        iconSequence,
+    };
 
-    if (useIcon) {
-        // Pick a themed icon from the flat ALL_ICONS array
-        const iconOffset = THEME_ICON_OFFSETS[headline.theme] ?? THEME_ICON_OFFSETS.general ?? 0;
-        const iconCount = THEME_ICONS[headline.theme]?.length ?? 3;
-        const iconMotif = iconOffset + (motifSeed % iconCount);
-
-        return {
-            patternSetIndex: ICON_PATTERN_INDEX,
-            motif: iconMotif,
-            filled: Math.random() < params.filledBias,
-            roughness: params.roughness,
-            spinFactor: params.spinFactor,
-            themeIndex,
-        };
-    }
-
-    // Standard abstract pattern layer
-    const patternSetIndex = patterns[layerIndex % patterns.length];
-
-    return {
-        patternSetIndex,
-        motif: motifSeed, // will be modulo'd by pattern count at render time
+    // Pattern layer: theme-matched abstract pattern
+    const patternLayer: LiveLayerConfig = {
+        patternSetIndex: patterns[pairIndex % patterns.length],
+        motif: motifSeed,
         filled: Math.random() < params.filledBias,
         roughness: params.roughness,
         spinFactor: params.spinFactor,
         themeIndex,
     };
+
+    return [iconLayer, patternLayer];
 }
 
 /** Convert an array of classified headlines into layer configs */
@@ -153,12 +180,15 @@ export function headlinesToLayerConfigs(
     if (headlines.length === 0) return [];
 
     const configs: LiveLayerConfig[] = [];
-    for (let i = 0; i < layerCount; i++) {
-        // Cycle through headlines if we have more layers than headlines
+    for (let i = 0; configs.length < layerCount; i++) {
         const headline = headlines[i % headlines.length];
-        configs.push(headlineToLayerConfig(headline, i, seed));
+        const [iconLayer, patternLayer] = headlineToLayerPair(headline, i, seed);
+        configs.push(iconLayer);
+        if (configs.length < layerCount) {
+            configs.push(patternLayer);
+        }
     }
-    return configs;
+    return configs.slice(0, layerCount);
 }
 
 /** Keyword-based fallback classification (no LLM needed) */
