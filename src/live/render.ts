@@ -94,6 +94,12 @@ function drawTextRing(
 
     const chars = displayStr.split('');
 
+    // Measure actual text metrics for vertical stretching
+    const metrics = ctx.measureText('M');
+    const actualHeight = (metrics.actualBoundingBoxAscent ?? fontSize * 0.7) +
+                         (metrics.actualBoundingBoxDescent ?? fontSize * 0.15);
+    const stretchY = actualHeight > 0 ? band / actualHeight : 1;
+
     // Place characters one by one around the arc
     let angle = startAngle;
     const endAngle = startAngle + Math.PI * 2;
@@ -109,6 +115,8 @@ function drawTextRing(
         ctx.save();
         ctx.rotate(angle);
         ctx.translate(0, -midR);
+        // Stretch vertically to fill the full band height
+        ctx.scale(1, stretchY);
         ctx.fillText(ch, 0, 0);
         ctx.restore();
 
@@ -255,18 +263,26 @@ export function renderLiveMode(
 ): void {
     if (liveLayers.length === 0) return;
 
-    const { layers, spread, zoom, twist, seed, spinVariance } = config;
+    const { zoom, twist, seed, spinVariance } = config;
+
+    // Override layer count & spread for live mode:
+    // Use enough layers so every headline gets its own ring in the visible area.
+    // Thinner bands = more layers packed from center outward, less repetition.
+    const headlineCount = liveLayers.length;
+    const liveSpread = Math.max(20, Math.min(45, maxR / Math.max(headlineCount, 8)));
+    const liveLayers_count = Math.ceil(maxR / liveSpread) + 2;
+
     const offset = zoom % 1;
     const shift = Math.floor(zoom);
 
-    for (let l = layers; l >= -1; l--) {
+    for (let l = liveLayers_count; l >= -1; l--) {
         const absL = l - shift;
-        const layerIdx = l >= 0 ? l % liveLayers.length : 0;
+        const layerIdx = l >= 0 ? l % headlineCount : 0;
         const layer = liveLayers[layerIdx];
 
         // Base radii
-        let r1 = Math.max(0, (l + offset) * spread);
-        let r2 = Math.max(0, (l + 1 + offset) * spread);
+        let r1 = Math.max(0, (l + offset) * liveSpread);
+        let r2 = Math.max(0, (l + 1 + offset) * liveSpread);
 
         if (r2 <= 0) continue;
         if (r1 > maxR) continue;
@@ -275,8 +291,8 @@ export function renderLiveMode(
         const midR = (r1 + r2) / 2;
         const distToLayer = Math.abs(activePointerDist - midR);
         let bulge = 0;
-        if (isBulgeActive && distToLayer < spread * 1.5) {
-            bulge = (1 - distToLayer / (spread * 1.5)) * (spread * 0.4);
+        if (isBulgeActive && distToLayer < liveSpread * 1.5) {
+            bulge = (1 - distToLayer / (liveSpread * 1.5)) * (liveSpread * 0.4);
         }
         r2 += bulge;
         if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
