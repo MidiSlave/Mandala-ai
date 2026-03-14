@@ -832,6 +832,36 @@ const KEYWORD_ICONS: [string, string][] = [
     ['old', 'clock'],
 ];
 
+/** A keyword match with position and matched text span */
+export interface KeywordMatch {
+    icon: string;
+    pos: number;
+    length: number;
+}
+
+/**
+ * Find keyword→icon matches in a headline with positions and lengths.
+ * Used by the text renderer to replace words with inline icons.
+ */
+export function findKeywordMatches(title: string, maxMatches = 12): KeywordMatch[] {
+    const lower = title.toLowerCase();
+    const matched: KeywordMatch[] = [];
+
+    for (const [keyword, iconName] of KEYWORD_ICONS) {
+        const idx = lower.indexOf(keyword);
+        if (idx < 0) continue;
+        // Check no overlap with existing matches
+        const end = idx + keyword.length;
+        const overlaps = matched.some(m => !(end <= m.pos || idx >= m.pos + m.length));
+        if (overlaps) continue;
+        matched.push({ icon: iconName, pos: idx, length: keyword.length });
+        if (matched.length >= maxMatches) break;
+    }
+
+    matched.sort((a, b) => a.pos - b.pos);
+    return matched;
+}
+
 /**
  * Extract an ordered sequence of Lucide icon names from a headline.
  * Returns icons in the order their keywords appear in the text.
