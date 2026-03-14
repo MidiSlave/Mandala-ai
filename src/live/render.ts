@@ -58,9 +58,15 @@ function drawTextRing(
     const band = r2 - r1;
     if (band < MIN_BAND) return;
 
-    // Font = full band height. No padding — text IS the layer.
-    const fontSize = Math.max(3, band * 0.92);
     const midR = (r1 + r2) / 2;
+    const circumference = 2 * Math.PI * midR;
+    const upper = text.toUpperCase();
+    const separator = ' \u2022 ';
+
+    // Size the font so the full headline fits around the ring,
+    // capped at the band height so it fills the layer.
+    const maxFontSize = band * 0.92;
+    let fontSize = maxFontSize;
 
     ctx.save();
     ctx.font = `900 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
@@ -68,16 +74,21 @@ function drawTextRing(
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
 
-    const upper = text.toUpperCase();
+    // Measure text width at current font size
+    const headlineWithSep = upper + separator;
+    let textWidth = ctx.measureText(headlineWithSep).width;
 
-    // Build display string: headline repeated with bullet separator to fill circle
-    const separator = ' \u2022 ';
+    // If headline is wider than circumference, shrink font to fit
+    if (textWidth > circumference && circumference > 0) {
+        fontSize = Math.max(3, fontSize * (circumference / textWidth));
+        ctx.font = `900 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+        textWidth = ctx.measureText(headlineWithSep).width;
+    }
+
+    // Build display string: repeat headline to fill the full circle
     let displayStr = upper;
-    // Measure one copy + separator
-    const oneWidth = ctx.measureText(upper + separator).width;
-    const circumference = 2 * Math.PI * midR;
-    if (oneWidth > 0) {
-        const repeats = Math.ceil(circumference / oneWidth) + 1;
+    if (textWidth > 0) {
+        const repeats = Math.max(1, Math.ceil(circumference / textWidth));
         displayStr = Array(repeats).fill(upper).join(separator);
     }
 
