@@ -340,9 +340,7 @@ const PURE_TEXT_LAYERS = 5;
 
 /**
  * Render a single live layer ring.
- * ringIndex 0..PURE_TEXT_LAYERS-1: pure text (no inline icons)
- * ringIndex PURE_TEXT_LAYERS+: text with keyword→icon substitutions
- * Outer half of viewport: dense icon motif blocks
+ * All rings use icon motif blocks; density increases from center to edge.
  */
 function renderLiveLayer(
     ctx: CanvasRenderingContext2D,
@@ -353,7 +351,7 @@ function renderLiveLayer(
     layerIndex: number,
     twist: number,
     maxR: number,
-    ringIndex: number,
+    _ringIndex: number,
 ): boolean {
     const band = r2 - r1;
     if (band < MIN_BAND) return false;
@@ -381,39 +379,11 @@ function renderLiveLayer(
     ctx.lineWidth = Math.max(0.5, band * 0.015);
     ctx.stroke();
 
-    // Smooth transition zone between text and icon motifs.
-    // Instead of a hard cutoff, blend over a transition band so there's
-    // no visible pop when zooming/scrolling moves rings across the boundary.
+    // Density increases from center to edge (0→1)
     const midR = (r1 + r2) / 2;
-    const transitionStart = maxR * 0.38;  // text fully visible below here
-    const transitionEnd = maxR * 0.55;    // icons fully visible above here
-    const transitionWidth = transitionEnd - transitionStart;
+    const density = maxR > 0 ? Math.max(0, Math.min(1, midR / maxR)) : 0;
 
-    // iconBlend: 0 = pure text, 1 = pure icons
-    const iconBlend = transitionWidth > 0
-        ? Math.max(0, Math.min(1, (midR - transitionStart) / transitionWidth))
-        : (midR >= transitionStart ? 1 : 0);
-
-    // Density increases from transition zone to edge (0→1)
-    const density = maxR > 0 ? Math.max(0, Math.min(1, (midR - transitionEnd) / (maxR - transitionEnd))) : 0;
-
-    const savedAlpha = ctx.globalAlpha;
-
-    if (iconBlend < 1) {
-        // Draw text layer (fading out as iconBlend increases)
-        ctx.globalAlpha = savedAlpha * (1 - iconBlend);
-        const useIcons = ringIndex >= PURE_TEXT_LAYERS;
-        const matches = useIcons ? layer.keywordMatches : [];
-        drawTextRing(ctx, layer.headline.title, matches, r1, r2, color, twist);
-    }
-
-    if (iconBlend > 0) {
-        // Draw icon motifs (fading in as iconBlend increases)
-        ctx.globalAlpha = savedAlpha * iconBlend;
-        drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, density);
-    }
-
-    ctx.globalAlpha = savedAlpha;
+    drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, density);
 
     ctx.restore();
     return true;
