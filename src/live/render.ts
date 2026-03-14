@@ -58,47 +58,37 @@ function drawTextRing(
     const band = r2 - r1;
     if (band < MIN_BAND) return;
 
-    // Font fills the full band height, with padding
-    const fontSize = Math.max(3, band * 0.75);
+    // Font = full band height. No padding — text IS the layer.
+    const fontSize = Math.max(3, band * 0.92);
     const midR = (r1 + r2) / 2;
 
     ctx.save();
-    ctx.font = `bold ${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", "Courier New", monospace`;
+    ctx.font = `900 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     ctx.fillStyle = color;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
 
-    // Measure characters
     const upper = text.toUpperCase();
-    const chars = upper.split('');
-    const spaceWidth = ctx.measureText('M').width; // em-width for spacing
 
-    // Calculate how many characters fit around the circumference
+    // Build display string: headline repeated with bullet separator to fill circle
+    const separator = ' \u2022 ';
+    let displayStr = upper;
+    // Measure one copy + separator
+    const oneWidth = ctx.measureText(upper + separator).width;
     const circumference = 2 * Math.PI * midR;
-    const charAngleWidth = spaceWidth / midR; // approximate angle per char
+    if (oneWidth > 0) {
+        const repeats = Math.ceil(circumference / oneWidth) + 1;
+        displayStr = Array(repeats).fill(upper).join(separator);
+    }
 
-    // Repeat text to fill the full circle, with bullet separators
+    const chars = displayStr.split('');
+
+    // Place characters one by one around the arc
     let angle = startAngle;
     const endAngle = startAngle + Math.PI * 2;
-    let charIdx = 0;
-    let inSeparator = false;
 
-    while (angle < endAngle - 0.01) {
-        let ch: string;
-        if (charIdx >= chars.length) {
-            // Separator between repeats
-            if (!inSeparator) {
-                angle += charAngleWidth * 1.5; // gap
-                inSeparator = true;
-            }
-            charIdx = 0;
-            inSeparator = false;
-            continue;
-        }
-
-        ch = chars[charIdx];
-        charIdx++;
-
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
         const charW = ctx.measureText(ch).width;
         const halfAngle = (charW / midR) / 2;
         angle += halfAngle;
@@ -108,7 +98,6 @@ function drawTextRing(
         ctx.save();
         ctx.rotate(angle);
         ctx.translate(0, -midR);
-        // Counter-rotate so text reads outward (tangent to circle)
         ctx.fillText(ch, 0, 0);
         ctx.restore();
 
@@ -166,12 +155,8 @@ function drawIconRingDense(
 
             ctx.save();
             ctx.rotate(angle);
-            // Translate to the icon position on the ring
-            ctx.translate(rowR, 0);
-            // Counter-rotate to keep icon upright
-            ctx.rotate(-angle);
-
-            drawCanvasIcon(ctx, icon, 0, 0, actualIconSize, color, strokeWidth);
+            // Icon stays radially oriented (no counter-rotation)
+            drawCanvasIcon(ctx, icon, rowR, 0, actualIconSize, color, strokeWidth);
             ctx.restore();
         }
     }
