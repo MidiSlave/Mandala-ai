@@ -2,27 +2,23 @@
  * Isolated live mode renderer for the mandala canvas.
  *
  * Completely separate from the hand-drawn pattern pipeline.
- * Renders sharp (no wobble) text and icons on mandala rings.
- *
- * Inner rings: RSS headline text fills the full band height, wrapping around the arc
- * Outer rings (past midscreen): Dense, upright Lucide icons tiling the ring
+ * Renders sharp Lucide icons in adaptive grid motif blocks on mandala rings.
+ * Each headline maps to a set of theme-relevant icons via the icon-index.
  */
 
 import type { ClassifiedHeadline } from './types';
 import type { ColorTheme } from '../config/types';
 import { drawCanvasIcon } from './lucide-canvas';
 import { getIcon, ensureIconsLoaded } from './icon-loader';
-import { getHeadlineIcons, findKeywordMatches, type KeywordMatch } from './icon-index';
+import { getHeadlineIcons } from './icon-index';
 
 /** Minimum band width to render anything */
 const MIN_BAND = 4;
 
-/** A resolved live layer: headline + its icon names + keyword matches */
+/** A resolved live layer: headline + its icon names */
 export interface LiveLayer {
     headline: ClassifiedHeadline;
     iconNames: string[];
-    /** Keyword→icon matches with positions in the title text */
-    keywordMatches: KeywordMatch[];
 }
 
 /**
@@ -35,179 +31,14 @@ export function buildLiveLayers(headlines: ClassifiedHeadline[]): LiveLayer[] {
 
     for (const headline of headlines) {
         const iconNames = getHeadlineIcons(headline.title, headline.theme, 16);
-        const keywordMatches = findKeywordMatches(headline.title);
-        layers.push({ headline, iconNames, keywordMatches });
+        layers.push({ headline, iconNames });
         iconNames.forEach(n => allIconNames.add(n));
-        keywordMatches.forEach(m => allIconNames.add(m.icon));
     }
 
     // Trigger async loading of all needed icons
     ensureIconsLoaded([...allIconNames]);
 
     return layers;
-}
-
-/**
- * A segment of text or an inline icon to render around the ring.
- */
-interface TextSegment {
-    type: 'text';
-    text: string;
-}
-interface IconSegment {
-    type: 'icon';
-    iconName: string;
-}
-type RingSegment = TextSegment | IconSegment;
-
-/**
- * Build display segments from headline text, replacing matched keywords with icons.
- */
-function buildSegments(text: string, matches: KeywordMatch[]): RingSegment[] {
-    const segments: RingSegment[] = [];
-    let cursor = 0;
-
-    for (const m of matches) {
-        if (m.pos > cursor) {
-            segments.push({ type: 'text', text: text.slice(cursor, m.pos).toUpperCase() });
-        }
-        segments.push({ type: 'icon', iconName: m.icon });
-        cursor = m.pos + m.length;
-    }
-
-    if (cursor < text.length) {
-        segments.push({ type: 'text', text: text.slice(cursor).toUpperCase() });
-    }
-
-    return segments;
-}
-
-/**
- * Draw headline text filling the full band height, wrapping around the ring.
- * Keyword matches are replaced with inline icons oriented toward center.
- */
-function drawTextRing(
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    matches: KeywordMatch[],
-    r1: number,
-    r2: number,
-    color: string,
-    startAngle: number,
-): void {
-    const band = r2 - r1;
-    if (band < MIN_BAND) return;
-
-    const midR = (r1 + r2) / 2;
-    const circumference = 2 * Math.PI * midR;
-    const separator = ' \u2022 ';
-
-    // Build segments with icon replacements
-    const baseSegments = buildSegments(text, matches);
-
-    // Size the font so the full headline fits around the ring
-    const maxFontSize = band * 0.92;
-    let fontSize = maxFontSize;
-
-    ctx.save();
-    ctx.font = `900 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    ctx.fillStyle = color;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-
-    // Measure total width of one pass (text + icon slots)
-    const iconSlotWidth = fontSize * 1.1; // icon takes ~1 em of horizontal space
-    let onePassWidth = 0;
-    for (const seg of baseSegments) {
-        if (seg.type === 'text') {
-            onePassWidth += ctx.measureText(seg.text).width;
-        } else {
-            onePassWidth += iconSlotWidth;
-        }
-    }
-    const sepWidth = ctx.measureText(separator).width;
-    onePassWidth += sepWidth;
-
-    // If one pass is wider than circumference, shrink font
-    if (onePassWidth > circumference && circumference > 0) {
-        fontSize = Math.max(3, fontSize * (circumference / onePassWidth));
-        ctx.font = `900 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    }
-
-    // Recalculate after font change
-    const iconSlot = fontSize * 1.1;
-    let recalcWidth = 0;
-    for (const seg of baseSegments) {
-        if (seg.type === 'text') {
-            recalcWidth += ctx.measureText(seg.text).width;
-        } else {
-            recalcWidth += iconSlot;
-        }
-    }
-    recalcWidth += ctx.measureText(separator).width;
-
-    // How many repeats to fill the circle
-    const repeats = Math.max(1, Math.ceil(circumference / Math.max(recalcWidth, 1)));
-
-    // Build full segment list with separators
-    const fullSegments: RingSegment[] = [];
-    for (let r = 0; r < repeats; r++) {
-        if (r > 0) fullSegments.push({ type: 'text', text: separator });
-        fullSegments.push(...baseSegments);
-    }
-
-    // Measure text metrics for vertical stretching
-    const metrics = ctx.measureText('M');
-    const actualHeight = (metrics.actualBoundingBoxAscent ?? fontSize * 0.7) +
-                         (metrics.actualBoundingBoxDescent ?? fontSize * 0.15);
-    const stretchY = actualHeight > 0 ? band / actualHeight : 1;
-
-    const iconSize = band * 0.82;
-    const iconStroke = Math.max(0.8, Math.min(2, iconSize / 14));
-
-    // Render segments around the arc
-    let angle = startAngle;
-    const endAngle = startAngle + Math.PI * 2;
-
-    for (const seg of fullSegments) {
-        if (angle >= endAngle) break;
-
-        if (seg.type === 'icon') {
-            const icon = getIcon(seg.iconName);
-            const slotAngle = iconSlot / midR;
-            if (icon && angle + slotAngle <= endAngle) {
-                const iconAngle = angle + slotAngle / 2;
-                ctx.save();
-                ctx.rotate(iconAngle);
-                ctx.translate(0, -midR);
-                // Rotate so icon "up" points toward center
-                ctx.rotate(Math.PI);
-                drawCanvasIcon(ctx, icon, 0, 0, iconSize, color, iconStroke);
-                ctx.restore();
-            }
-            angle += slotAngle;
-        } else {
-            const chars = seg.text.split('');
-            for (const ch of chars) {
-                if (angle >= endAngle) break;
-                const charW = ctx.measureText(ch).width;
-                const halfAngle = (charW / midR) / 2;
-                angle += halfAngle;
-                if (angle >= endAngle) break;
-
-                ctx.save();
-                ctx.rotate(angle);
-                ctx.translate(0, -midR);
-                ctx.scale(1, stretchY);
-                ctx.fillText(ch, 0, 0);
-                ctx.restore();
-
-                angle += halfAngle;
-            }
-        }
-    }
-
-    ctx.restore();
 }
 
 /**
@@ -362,9 +193,6 @@ function drawIconMotifRing(
         }
     }
 }
-
-/** Innermost layers (0-based) that show pure text with no icon substitutions */
-const PURE_TEXT_LAYERS = 5;
 
 /**
  * Render a single live layer ring.

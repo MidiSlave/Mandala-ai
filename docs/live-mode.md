@@ -1,6 +1,6 @@
 # Mandala Live
 
-Mandala Live transforms the generator into a real-time news visualization. Each mandala ring represents a headline — rendered with sharp Lucide icons and circular text, completely isolated from the hand-drawn pattern system.
+Mandala Live transforms the generator into a real-time news visualization. Each mandala ring represents a headline — rendered with sharp Lucide icons in dense, adaptive grid motif blocks, completely isolated from the hand-drawn pattern system.
 
 ![Live Mode](live-mode-panel.png)
 
@@ -8,17 +8,19 @@ Mandala Live transforms the generator into a real-time news visualization. Each 
 
 1. **News fetching** — headlines from CurrentsAPI (with key) or RSS feeds (Google News, BBC, Reuters)
 2. **Classification** — Google Gemini classifies into 16 themes + sentiment, or falls back to keyword matching
-3. **Text rings** — small/inner rings show the headline text wrapping along circular arcs
-4. **Icon rings** — as rings grow larger, text transitions to sharp Lucide icons representing the story's keywords
+3. **Icon motif blocks** — each ring displays a tiled grid of Lucide icons representing the headline's keywords and theme
+4. **Adaptive grid** — thick bands use a 4×4 grid (primary icon 2×2–3×3, secondaries 1×1–2×2); thin bands scale down to 2×2 or single-row layouts
 5. **Sentiment** — negative news increases roughness and spin; positive news is smoother and calmer
 
-## Text-to-Icon Transition
+## Icon Grid Layout
 
-The key visual feature: rings smaller than ~35px show **headline text** curving along the arc (illegible but textural). As the tunnel zoom brings rings outward and they grow, they transition to **recognizable icons** that tell the story.
+Each ring is divided into repeating motif tiles. Within each tile, a 4×4 grid (16 blocks) is allocated:
 
-For example, *"Iran launches missile strike against Israel defense forces"* renders as:
-- **Small ring**: `IRAN LAUNCHES MISSILE STRIKE AGAINST ISRAEL DEFENSE FORCES` wrapping in a circle
-- **Large ring**: swords, rocket, flag, shield icons arranged radially
+- **Primary icon** (the headline's main theme icon) occupies **2×2 or 3×3 blocks** (4–9 cells)
+- **Secondary icons** (keyword-matched) fill remaining cells at **1×1 to 2×2 sizes** (1–4 cells)
+- Thin bands automatically scale to smaller grids so icons stay dense even when spawning
+
+For example, *"Iran launches missile strike against Israel defense forces"* renders as a grid of swords, rocket, flag, and shield icons of varying sizes — the dominant theme icon (swords) appears largest.
 
 ## Icon System
 
@@ -36,8 +38,8 @@ A keyword index maps 500+ words to specific Lucide icons across 20+ categories:
 | Technology | AI, cyber, chip, hack | brain-circuit, lock, cpu |
 | Space | rocket, satellite, mars | rocket, satellite-dish, telescope |
 | Transport | plane, ship, train, car | plane, ship, train, car |
-| Crime | arrest, murder, police | handcuffs, gavel, siren |
-| Disaster | earthquake, tsunami, explosion | alert-triangle, waves, bomb |
+| Crime | arrest, murder, police | skull, crosshair, siren, scan-face |
+| Disaster | earthquake, tsunami, explosion | brick-wall-fire, waves, bomb, skull |
 | ... | 10+ more categories | |
 
 ## 16 News Themes
@@ -71,7 +73,7 @@ Live mode rendering is **completely isolated** from the hand-drawn pattern pipel
 
 ```
 src/live/
-  render.ts        # Isolated canvas renderer (text + icons, sharp, no wobble)
+  render.ts        # Isolated canvas renderer (adaptive icon grids, sharp, no wobble)
   lucide-canvas.ts # Lucide icon → Canvas2D Path2D conversion
   icon-loader.ts   # Async dynamic loader for Lucide icons (1,800+ available)
   icon-index.ts    # 500+ keyword → Lucide icon name mappings
