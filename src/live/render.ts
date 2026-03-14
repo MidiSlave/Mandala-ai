@@ -340,7 +340,7 @@ const PURE_TEXT_LAYERS = 5;
 
 /**
  * Render a single live layer ring.
- * All rings use icon motif blocks; density increases from center to edge.
+ * All rings use dense icon motif blocks at uniform density (like pattern mode).
  */
 function renderLiveLayer(
     ctx: CanvasRenderingContext2D,
@@ -350,7 +350,7 @@ function renderLiveLayer(
     theme: ColorTheme,
     layerIndex: number,
     twist: number,
-    maxR: number,
+    _maxR: number,
     _ringIndex: number,
 ): boolean {
     const band = r2 - r1;
@@ -379,11 +379,8 @@ function renderLiveLayer(
     ctx.lineWidth = Math.max(0.5, band * 0.015);
     ctx.stroke();
 
-    // Density increases from center to edge (0→1)
-    const midR = (r1 + r2) / 2;
-    const density = maxR > 0 ? Math.max(0, Math.min(1, midR / maxR)) : 0;
-
-    drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, density);
+    // Uniform high density across all rings
+    drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, 0.85);
 
     ctx.restore();
     return true;
