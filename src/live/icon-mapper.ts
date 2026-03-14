@@ -133,13 +133,60 @@ const KEYWORD_ICONS: [string, string][] = [
     ['afghanistan', 'flag'], ['pakistan', 'flag'],
 
     // General / People
-    ['people', 'globe'], ['world', 'globe'], ['global', 'globe'],
+    ['people', 'person'], ['worker', 'person'], ['leader', 'person'],
+    ['official', 'person'], ['victim', 'person'], ['suspect', 'person'],
+    ['world', 'globe'], ['global', 'globe'],
     ['country', 'flag'], ['nation', 'flag'], ['international', 'globe'],
-    ['crisis', 'warning'], ['protest', 'flag'], ['rally', 'flag'],
-    ['death', 'warning'], ['kill', 'warning'], ['children', 'heart-pulse'],
-    ['women', 'heart-pulse'], ['rights', 'scale'], ['freedom', 'dove'],
-    ['democracy', 'scale'], ['oil', 'flame'], ['gas', 'flame'],
-    ['ship', 'satellite'], ['transport', 'satellite'],
+    ['crisis', 'warning'], ['protest', 'crowd'], ['rally', 'crowd'],
+    ['death', 'skull'], ['kill', 'skull'], ['dead', 'skull'], ['die', 'skull'],
+    ['children', 'person'], ['women', 'person'], ['man', 'person'], ['family', 'crowd'],
+    ['rights', 'scale'], ['freedom', 'dove'], ['democracy', 'ballot'],
+    ['vote', 'ballot'], ['election', 'ballot'],
+
+    // Vehicles / Transport
+    ['ship', 'ship'], ['boat', 'ship'], ['vessel', 'ship'], ['navy', 'ship'],
+    ['plane', 'plane'], ['aircraft', 'plane'], ['jet', 'plane'], ['airline', 'plane'], ['flight', 'plane'],
+    ['car', 'car'], ['vehicle', 'car'], ['driver', 'car'], ['auto', 'car'], ['traffic', 'car'],
+    ['train', 'train'], ['rail', 'train'], ['metro', 'train'], ['subway', 'train'],
+    ['tank', 'tank'], ['armor', 'tank'], ['armored', 'tank'],
+    ['transport', 'train'], ['cargo', 'ship'],
+
+    // Buildings / Places
+    ['house', 'house'], ['home', 'house'], ['apartment', 'house'], ['housing', 'house'],
+    ['hospital', 'hospital'], ['clinic', 'hospital'],
+    ['factory', 'factory'], ['plant', 'factory'], ['manufacture', 'factory'], ['industrial', 'factory'],
+    ['prison', 'prison'], ['jail', 'prison'], ['inmate', 'prison'], ['detained', 'prison'],
+    ['church', 'cross'], ['mosque', 'landmark'], ['temple', 'landmark'],
+    ['building', 'house'], ['tower', 'antenna'],
+    ['refugee', 'tent'], ['camp', 'tent'], ['shelter', 'tent'], ['displaced', 'tent'],
+
+    // Resources / Materials
+    ['oil', 'oil'], ['petroleum', 'oil'], ['crude', 'oil'], ['barrel', 'oil'],
+    ['gas', 'oil'], ['fuel', 'oil'], ['pipeline', 'oil'],
+    ['water', 'water'], ['drought', 'water'], ['irrigation', 'water'],
+    ['wheat', 'wheat'], ['grain', 'wheat'], ['crop', 'wheat'], ['harvest', 'wheat'],
+    ['food', 'wheat'], ['famine', 'wheat'], ['hunger', 'wheat'],
+    ['money', 'money'], ['cash', 'money'], ['payment', 'money'], ['wage', 'money'],
+    ['salary', 'money'], ['billion', 'money'], ['million', 'money'], ['trillion', 'money'],
+
+    // Communication / Media
+    ['phone', 'phone'], ['mobile', 'phone'], ['call', 'phone'], ['telecom', 'phone'],
+    ['speech', 'speech'], ['said', 'speech'], ['statement', 'speech'], ['announce', 'speech'],
+    ['declare', 'speech'], ['claim', 'speech'], ['interview', 'microphone'],
+    ['press', 'microphone'], ['broadcast', 'antenna'], ['media', 'camera'],
+    ['photo', 'camera'], ['video', 'camera'], ['footage', 'camera'],
+    ['television', 'antenna'], ['radio', 'antenna'], ['signal', 'antenna'],
+
+    // Authority / Power
+    ['king', 'crown'], ['queen', 'crown'], ['royal', 'crown'], ['prince', 'crown'],
+    ['emperor', 'crown'], ['monarch', 'crown'],
+    ['police', 'handcuffs'], ['arrest', 'handcuffs'], ['detained', 'handcuffs'],
+    ['custody', 'handcuffs'],
+
+    // Nature / Disasters
+    ['volcano', 'volcano'], ['eruption', 'volcano'], ['lava', 'volcano'],
+    ['rain', 'umbrella'], ['monsoon', 'umbrella'],
+    ['clock', 'clock'], ['time', 'clock'], ['deadline', 'clock'], ['hour', 'clock'],
 ];
 
 /**
