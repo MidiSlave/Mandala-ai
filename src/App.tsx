@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
@@ -7,6 +7,8 @@ import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
 import { mulberry32 } from './utils/rng';
 import { getFullscreenElement, requestFullscreen, exitFullscreen } from './utils/fullscreen';
+import { refreshLiveData, loadApiKeys, saveApiKeys, clearCache } from './live';
+import type { LiveLayerConfig, ClassifiedHeadline } from './live';
 
 const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
@@ -36,6 +38,18 @@ export default function App() {
     const [themeIndex, setThemeIndex] = useState(0);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
+
+    // Live mode state
+    const [liveEnabled, setLiveEnabled] = useState(false);
+    const [liveHeadlines, setLiveHeadlines] = useState<ClassifiedHeadline[]>([]);
+    const [liveError, setLiveError] = useState<string | null>(null);
+    const [liveLoading, setLiveLoading] = useState(false);
+    const [showApiKeys, setShowApiKeys] = useState(false);
+    const [geminiKey, setGeminiKey] = useState('');
+    const [currentsKey, setCurrentsKey] = useState('');
+    const liveLayerConfigsRef = useRef<LiveLayerConfig[]>([]);
+    const liveEnabledRef = useRef(false);
+    const liveRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // High-frequency refs
     const configRef = useRef<AppConfig>({ ...DEFAULT_CONFIG });
@@ -265,15 +279,24 @@ export default function App() {
             }
         };
 
+        // Live mode layer configs
+        const liveConfigs = liveEnabledRef.current ? liveLayerConfigsRef.current : null;
+
         // Draw Layers from outside in
         for (let l = layers; l >= -1; l--) {
             const absL = l - shift;
-            const type = layerTypes[l + 1];
-            const filled = layerFilled[l + 1];
+            const liveConfig = liveConfigs && l >= 0 && l < liveConfigs.length ? liveConfigs[l] : null;
+            const type = liveConfig ? liveConfig.motif : layerTypes[l + 1];
+            const filled = liveConfig ? liveConfig.filled : layerFilled[l + 1];
             const layerRng = mulberry32(config.seed + absL * 999);
 
-            // Pick a color for this layer from the theme palette
-            layerColor = theme.colors[((absL % theme.colors.length) + theme.colors.length) % theme.colors.length];
+            // Pick a color for this layer — live mode overrides with theme-matched colors
+            if (liveConfig) {
+                const liveTheme = COLOR_THEMES[liveConfig.themeIndex % COLOR_THEMES.length];
+                layerColor = liveTheme.colors[((absL % liveTheme.colors.length) + liveTheme.colors.length) % liveTheme.colors.length];
+            } else {
+                layerColor = theme.colors[((absL % theme.colors.length) + theme.colors.length) % theme.colors.length];
+            }
 
             // Base radii
             let r1 = Math.max(0, (l + offset) * config.spread);
@@ -344,7 +367,9 @@ export default function App() {
                 ctx.save();
                 ctx.rotate(i * layerAngleStep);
 
-                const activeSet = patternSet
+                const activeSet = liveConfig
+                    ? ALL_PATTERN_SETS[liveConfig.patternSetIndex % ALL_PATTERN_SETS.length]
+                    : patternSet
                     ? patternSet
                     : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
                 const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
@@ -470,6 +495,55 @@ export default function App() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    // --- Load saved API keys ---
+    useEffect(() => {
+        const keys = loadApiKeys();
+        setGeminiKey(keys.geminiKey);
+        setCurrentsKey(keys.currentsKey);
+    }, []);
+
+    // --- Live mode data fetching ---
+    const doLiveRefresh = useCallback(async () => {
+        if (!liveEnabledRef.current) return;
+        setLiveLoading(true);
+        setLiveError(null);
+        try {
+            const result = await refreshLiveData(
+                geminiKey, currentsKey,
+                configRef.current.layers, configRef.current.seed,
+            );
+            setLiveHeadlines(result.headlines);
+            liveLayerConfigsRef.current = result.layerConfigs;
+            isDirtyRef.current = true;
+        } catch (err) {
+            setLiveError(err instanceof Error ? err.message : 'Failed to fetch live data');
+        } finally {
+            setLiveLoading(false);
+        }
+    }, [geminiKey, currentsKey]);
+
+    useEffect(() => {
+        liveEnabledRef.current = liveEnabled;
+        if (liveEnabled) {
+            doLiveRefresh();
+            // Refresh every 10 minutes
+            liveRefreshTimerRef.current = setInterval(doLiveRefresh, 10 * 60 * 1000);
+        } else {
+            liveLayerConfigsRef.current = [];
+            isDirtyRef.current = true;
+            if (liveRefreshTimerRef.current) {
+                clearInterval(liveRefreshTimerRef.current);
+                liveRefreshTimerRef.current = null;
+            }
+        }
+        return () => {
+            if (liveRefreshTimerRef.current) {
+                clearInterval(liveRefreshTimerRef.current);
+                liveRefreshTimerRef.current = null;
+            }
+        };
+    }, [liveEnabled, doLiveRefresh]);
 
     // --- Fullscreen Change Listener (standard + webkit) ---
     useEffect(() => {
@@ -850,6 +924,96 @@ export default function App() {
                                     ))}
                                 </select>
                             </div>
+                        </div>
+
+                        {/* Live Mode Section */}
+                        <div className="mb-4 pointer-events-auto touch-auto">
+                            <button
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    const next = !liveEnabled;
+                                    setLiveEnabled(next);
+                                }}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${liveEnabled ? 'bg-red-500/90 text-white shadow-lg shadow-red-500/20' : 'bg-black/5 text-black/70 hover:bg-black/10'}`}
+                            >
+                                <Radio size={14} className={liveEnabled ? 'animate-pulse' : ''} />
+                                {liveEnabled ? 'Live Mode On' : 'Live Mode'}
+                                {liveLoading && <RefreshCw size={12} className="animate-spin" />}
+                            </button>
+
+                            {liveEnabled && (
+                                <div className="mt-3 space-y-2">
+                                    {liveError && (
+                                        <p className="text-[10px] text-red-500 font-medium">{liveError}</p>
+                                    )}
+                                    {liveHeadlines.length > 0 && (
+                                        <div className="bg-black/5 rounded-lg p-2 max-h-24 overflow-y-auto">
+                                            {liveHeadlines.slice(0, 5).map((h, i) => (
+                                                <p key={i} className="text-[10px] text-black/60 leading-tight mb-1 last:mb-0">
+                                                    <span className={`inline-block w-2 h-2 rounded-full mr-1 align-middle ${h.sentiment === 'positive' ? 'bg-green-400' : h.sentiment === 'negative' ? 'bg-red-400' : 'bg-gray-400'}`} />
+                                                    <span className="text-[9px] font-bold uppercase text-black/40 mr-1">{h.theme}</span>
+                                                    {h.title.slice(0, 60)}{h.title.length > 60 ? '...' : ''}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onPointerDown={(e) => {
+                                                e.stopPropagation();
+                                                clearCache();
+                                                doLiveRefresh();
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-black/5 rounded-lg text-[10px] font-bold uppercase text-black/60 hover:bg-black/10"
+                                        >
+                                            <RefreshCw size={10} />
+                                            Refresh
+                                        </button>
+                                        <button
+                                            onPointerDown={(e) => {
+                                                e.stopPropagation();
+                                                setShowApiKeys(!showApiKeys);
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-black/5 rounded-lg text-[10px] font-bold uppercase text-black/60 hover:bg-black/10"
+                                        >
+                                            <Key size={10} />
+                                            API Keys
+                                            {showApiKeys ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                                        </button>
+                                    </div>
+                                    {showApiKeys && (
+                                        <div className="space-y-2 bg-black/5 rounded-lg p-2">
+                                            <div>
+                                                <label className="text-[9px] font-bold uppercase tracking-wider text-black/50 block mb-0.5">Gemini API Key (optional)</label>
+                                                <input
+                                                    type="password"
+                                                    value={geminiKey}
+                                                    onChange={(e) => {
+                                                        setGeminiKey(e.target.value);
+                                                        saveApiKeys(e.target.value, currentsKey);
+                                                    }}
+                                                    placeholder="AI classification (uses keywords if empty)"
+                                                    className="w-full px-2 py-1 text-[10px] bg-white/80 border border-black/10 rounded font-mono focus:outline-none focus:ring-1 focus:ring-black/20"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold uppercase tracking-wider text-black/50 block mb-0.5">CurrentsAPI Key (optional)</label>
+                                                <input
+                                                    type="password"
+                                                    value={currentsKey}
+                                                    onChange={(e) => {
+                                                        setCurrentsKey(e.target.value);
+                                                        saveApiKeys(geminiKey, e.target.value);
+                                                    }}
+                                                    placeholder="News source (uses RSS if empty)"
+                                                    className="w-full px-2 py-1 text-[10px] bg-white/80 border border-black/10 rounded font-mono focus:outline-none focus:ring-1 focus:ring-black/20"
+                                                />
+                                            </div>
+                                            <p className="text-[8px] text-black/40">Both keys are optional. Without them, the app uses RSS feeds + keyword classification.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {isAutoAnimating && (
