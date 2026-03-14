@@ -1,11 +1,15 @@
 # Mandala Generator
 
-An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 29 distinct pattern sets drawn from world art traditions, generative algorithms, and research-inspired techniques.
+An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 30 distinct pattern sets drawn from world art traditions, generative algorithms, and research-inspired techniques — plus a **Live Mode** that transforms real-time news headlines into visual mandala patterns.
+
+![Mandala Generator](docs/hero-mandala.png)
 
 ## Features
 
 - **Infinite tunnel zoom** — pinch or scroll to travel endlessly inward/outward through layers
-- **29 pattern sets** across cultural, generative, art movement, and research-inspired categories, plus a Mix mode
+- **30 pattern sets** across cultural, generative, art movement, research-inspired, and news icon categories, plus a Mix mode
+- **Mandala Live** — news-driven visualization that classifies headlines by theme and sentiment, mapping them to patterns and colors in real time
+- **48 News Icons** — recognizable symbolic shapes (swords, hearts, rockets, atoms, etc.) organized by 16 news themes
 - **Hand-drawn aesthetic** — every stroke gets per-pass roughness wobble and a paper grain overlay
 - **Touch and mouse gestures** — drag, pinch, double-tap, scroll
 - **Auto-animation** — continuous spin, zoom, and wave bulge with adjustable speeds
@@ -65,7 +69,19 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 | Flow Field | 6 | Sinusoidal streams, swirl vortex, noise traces, distorted grid, convergence, turbulence |
 | Noise Strata | 6 | Topographic contours, fragmented grid, ridge lines, terrain bands, warp distortion, noise columns |
 | Organic Cells | 6 | Circle packing, metaballs, reaction-diffusion, Voronoi cracks, mycelium networks, patchwork |
-| **Mix** | — | Randomly assigns a different set to each layer |
+
+### News Icons (1)
+
+| Set | Motifs | Inspiration |
+|-----|--------|-------------|
+| News Icons | 48 | 3 icons per 16 news themes: swords/shields (conflict), coins/charts (economy), clouds/lightning (weather), hearts/pills (health), landmarks/flags (politics), CPUs/wifi (technology), trophies/medals (sports), palettes/music (culture), leaves/trees (environment), atoms/flasks (science), locks/gavels (crime), flames/warnings (disaster), doves/globes (diplomacy), books/caps (education), rockets/satellites (space), newspapers/search (general) |
+
+### Special Modes
+
+| Mode | Description |
+|------|-------------|
+| **Mix** | Randomly assigns a different pattern set to each layer |
+| **Live Mode** | News headlines drive pattern selection, colors, and icon layers (see below) |
 
 ## Pattern Reference Strips
 
@@ -112,6 +128,44 @@ Each pattern set has a reference strip showing all motifs in filled (left) and o
 ![Noise Strata](docs/strips/strip-noise-strata.png)
 ![Organic Cells](docs/strips/strip-organic-cells.png)
 
+### News Icons
+
+![News Icons](docs/strips/strip-news-icons.png)
+
+## Mandala Live
+
+![Live Mode](docs/live-mode-panel.png)
+
+Mandala Live turns the generator into a living data visualization fed by real-time news. When enabled, it fetches headlines, classifies them by theme and sentiment, and maps each story to patterns, colors, and icon shapes.
+
+### How It Works
+
+1. **News fetching** — headlines are pulled from CurrentsAPI (with API key) or RSS feeds (no key needed) as a fallback
+2. **Classification** — Google Gemini LLM classifies headlines into 16 themes and sentiments (falls back to keyword matching if no API key)
+3. **Pattern mapping** — each headline's theme maps to thematically appropriate pattern sets (e.g., conflict → fractal/maze/tribal, economy → guilloche/art deco)
+4. **Icon layers** — every 3rd mandala layer renders a themed icon (sword for conflict, rocket for space, etc.) so the news is visually "readable"
+5. **Sentiment rendering** — negative news increases roughness and spin speed; positive news produces smoother, calmer patterns
+
+### 16 News Themes
+
+`conflict` `economy` `weather` `health` `politics` `technology` `sports` `culture` `environment` `science` `crime` `disaster` `diplomacy` `education` `space` `general`
+
+### Using Live Mode
+
+1. Click **Live Mode** in the control panel to enable
+2. The pattern dropdown is disabled — patterns are now driven by news
+3. Color themes remain selectable for personal preference
+4. Headlines appear in the panel with sentiment indicators (green/red/gray dots)
+5. Click **Refresh** to fetch new headlines (auto-refreshes every 10 minutes)
+6. Optionally add API keys under **API Keys** for better classification (Gemini) and more news sources (CurrentsAPI)
+
+### Works Without API Keys
+
+Live mode works out of the box with no configuration:
+- **News:** Falls back to RSS feeds from major outlets (Google News, BBC, Reuters)
+- **Classification:** Uses keyword-based theme detection and sentiment analysis
+- API keys are optional enhancements for higher quality results
+
 ## Controls
 
 | Input | Action |
@@ -127,7 +181,7 @@ Each pattern set has a reference strip showing all motifs in filled (left) and o
 The `tools/` directory provides headless rendering and analysis utilities:
 
 ```bash
-npx tsx tools/cli.ts render-strips                 # Render reference strips for all 29 pattern sets
+npx tsx tools/cli.ts render-strips                 # Render reference strips for all 30 pattern sets
 npx tsx tools/cli.ts render-strips --set maze      # Render strip for a specific set
 npx tsx tools/cli.ts render-tiles                   # Render individual pattern tiles
 npx tsx tools/cli.ts render-mandalas --size 1200    # Render full mandalas

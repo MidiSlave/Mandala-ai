@@ -28,3 +28,4 @@ export { default as mazePatterns } from './maze';
 export { default as flowFieldPatterns } from './flowfield';
 export { default as noiseStrataPatterns } from './noisestrata';
 export { default as organicCellPatterns } from './organiccells';
+export { default as iconPatterns } from './icons/index';

@@ -44,6 +44,7 @@ import mazePatterns from '../src/patterns/maze';
 import flowFieldPatterns from '../src/patterns/flowfield';
 import noiseStrataPatterns from '../src/patterns/noisestrata';
 import organicCellPatterns from '../src/patterns/organiccells';
+import iconPatterns from '../src/patterns/icons';
 
 export const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
@@ -53,7 +54,7 @@ export const ALL_PATTERN_SETS: PatternSet[] = [
     spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns,
     opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns,
     embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
-    organicCellPatterns,
+    organicCellPatterns, iconPatterns,
 ];
 
 export function getPatternSetByName(name: string): PatternSet | undefined {
