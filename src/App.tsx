@@ -285,7 +285,8 @@ export default function App() {
         // Draw Layers from outside in
         for (let l = layers; l >= -1; l--) {
             const absL = l - shift;
-            const liveConfig = liveConfigs && l >= 0 && l < liveConfigs.length ? liveConfigs[l] : null;
+            const liveConfig = liveConfigs && liveConfigs.length > 0 && l >= 0
+                ? liveConfigs[l % liveConfigs.length] : null;
             const type = liveConfig ? liveConfig.motif : layerTypes[l + 1];
             const filled = liveConfig ? liveConfig.filled : layerFilled[l + 1];
             const layerRng = mulberry32(config.seed + absL * 999);
@@ -890,18 +891,24 @@ export default function App() {
                                 </label>
                                 <select
                                     value={patternSetIndex}
+                                    disabled={liveEnabled}
                                     onChange={(e) => {
                                         const val = parseInt(e.target.value);
                                         setPatternSetIndex(val);
                                         patternSetRef.current = val === -1 ? null : ALL_PATTERN_SETS[val];
                                         isDirtyRef.current = true;
                                     }}
-                                    className="w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-black/20"
+                                    className={`w-full px-2 py-1.5 text-xs font-bold bg-black/5 border border-black/10 rounded-lg appearance-none focus:outline-none focus:ring-1 focus:ring-black/20 ${liveEnabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                    <option value={-1}>Mix (All)</option>
-                                    {ALL_PATTERN_SETS.map((ps, i) => (
-                                        <option key={ps.name} value={i}>{ps.name}</option>
-                                    ))}
+                                    {liveEnabled
+                                        ? <option>Driven by Live Mode</option>
+                                        : <>
+                                            <option value={-1}>Mix (All)</option>
+                                            {ALL_PATTERN_SETS.map((ps, i) => (
+                                                <option key={ps.name} value={i}>{ps.name}</option>
+                                            ))}
+                                          </>
+                                    }
                                 </select>
                             </div>
                             <div className="flex-1">
