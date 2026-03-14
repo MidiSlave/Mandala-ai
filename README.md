@@ -1,6 +1,6 @@
 # Mandala Generator
 
-An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 29 distinct pattern sets — plus a **Live Mode** that transforms real-time news headlines into visual mandala art using sharp Lucide icons and circular text.
+An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 29 distinct pattern sets — plus a **Live Mode** that transforms real-time news headlines into visual mandala art using dense grids of sharp Lucide icons.
 
 ![Mandala Generator](docs/hero-mandala.png)
 
@@ -8,7 +8,7 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 
 - **Infinite tunnel zoom** — pinch or scroll to travel endlessly inward/outward
 - **29 pattern sets** across cultural, generative, art movement, and research-inspired categories, plus Mix mode
-- **Mandala Live** — news headlines drive the visualization with sharp icons and circular text ([details](docs/live-mode.md))
+- **Mandala Live** — news headlines drive the visualization with dense adaptive icon grid motifs ([details](docs/live-mode.md))
 - **Hand-drawn aesthetic** — per-pass roughness wobble and paper grain overlay
 - **Touch and mouse gestures** — drag, pinch, double-tap, scroll
 - **Auto-animation** — continuous spin, zoom, and wave bulge
@@ -28,7 +28,7 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 
 ## Mandala Live
 
-Live Mode transforms the mandala into a real-time news visualization. Each ring represents a headline — small rings show the **headline text** wrapping along the arc, and as rings grow they transition to **sharp Lucide icons** representing the story's keywords.
+Live Mode transforms the mandala into a real-time news visualization. Each ring displays **dense grid motif blocks** of sharp Lucide icons representing the story's keywords and theme — primary icons take 4–9 blocks, secondaries fill the remaining cells.
 
 See **[Live Mode Documentation](docs/live-mode.md)** for setup and details.
 
