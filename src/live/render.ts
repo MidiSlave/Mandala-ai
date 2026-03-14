@@ -211,16 +211,14 @@ function drawTextRing(
 }
 
 /**
- * Draw composed icon motif blocks that repeat around the ring.
+ * Draw densely-packed icon motif blocks that repeat around the ring.
  *
- * Each motif is a radial block containing a larger primary icon (the headline's
- * theme icon) surrounded by smaller secondary icons. The block repeats around
- * the circumference. All icons are oriented with "up" pointing toward center.
- */
-/**
- * @param density 0..1 — how densely packed the motif should be.
- *   0 = sparse (just primary + a couple secondaries)
- *   1 = maximum density (all secondaries, tight packing)
+ * Each motif tile is divided into a 4×4 grid (16 blocks).
+ * The primary (theme) icon occupies 2×2 or 3×3 blocks (4–9 cells).
+ * Secondary icons fill remaining cells at 1×1 to 2×2 sizes (1–4 cells).
+ * All icons are oriented with "up" pointing toward the center.
+ *
+ * @param density 0..1 — controls how many cells are filled and how large the primary is.
  */
 function drawIconMotifRing(
     ctx: CanvasRenderingContext2D,
@@ -235,76 +233,104 @@ function drawIconMotifRing(
     if (band < 8 || iconNames.length === 0) return;
 
     const midR = (r1 + r2) / 2;
-
-    // Primary icon (first = most relevant to headline theme) is larger
     const primaryName = iconNames[0];
     const secondaryNames = iconNames.slice(1);
-
     const primaryIcon = getIcon(primaryName);
 
-    // Sizing scales with density: denser → slightly smaller primary, more room for secondaries
-    const primaryScale = 0.60 - density * 0.1;  // 0.60 → 0.50
-    const secondaryScale = 0.25 + density * 0.08; // 0.25 → 0.33
-    const primarySize = band * primaryScale;
-    const secondarySize = band * secondaryScale;
-    if (primarySize < 6) return;
+    // ── Grid-based block layout ──
+    // Each motif tile = 4×4 grid of cells, approximately square in screen space.
+    const G = 4;
+    const cellH = band / G;                       // radial height of one cell
+    const cellA = (cellH * 1.05) / midR;          // angular width ≈ square
+    const motifAngle = cellA * G;                  // total angular span of tile
 
-    const primaryStroke = Math.max(0.8, Math.min(2.5, primarySize / 12));
-    const secondaryStroke = Math.max(0.6, Math.min(1.5, secondarySize / 14));
+    if (cellH < 3) return;
 
-    // Number of secondaries scales with density: 2 at sparse, up to 8 at max
-    const maxSec = Math.min(secondaryNames.length, Math.round(2 + density * 6));
+    // How many motif tiles fit around the ring
+    const gapScale = 1.06 - density * 0.04;       // tighter packing at high density
+    const numMotifs = Math.max(1, Math.floor((Math.PI * 2) / (motifAngle * gapScale)));
+    const motifSpan = (Math.PI * 2) / numMotifs;
+    // Center the 4-column grid within each motif span
+    const angularPad = (motifSpan - motifAngle) / 2;
 
-    // Motif angular width
-    const primaryAngle = (primarySize * 1.05) / midR;
-    const secAngleWidth = (secondarySize * 1.05) / midR;
-    // Tighter packing at higher density
-    const packFactor = 0.65 - density * 0.15; // 0.65 → 0.50
-    const motifAngle = primaryAngle + maxSec * secAngleWidth * packFactor;
-
-    // Gap between motifs shrinks with density
-    const gapFactor = 1.15 - density * 0.12; // 1.15 → 1.03
-    const numMotifs = Math.max(1, Math.floor((Math.PI * 2) / (motifAngle * gapFactor)));
-    const motifAngleSpan = (Math.PI * 2) / numMotifs;
-
-    // Radial row positions for secondary icons
-    const rowPositions = [
-        r1 + secondarySize * 0.55,       // inner row
-        r2 - secondarySize * 0.55,       // outer row
-        r1 + band * 0.35,                // inner-mid
-        r2 - band * 0.35,                // outer-mid
-    ];
+    const strokeBig = Math.max(0.8, Math.min(2.5, cellH * 2 / 12));
+    const strokeSmall = Math.max(0.6, Math.min(1.8, cellH / 12));
 
     for (let m = 0; m < numMotifs; m++) {
-        const baseAngle = m * motifAngleSpan + twist;
+        const mBase = m * motifSpan + twist + angularPad;
 
-        // Draw primary icon at center of motif (on midR)
+        // Occupancy grid (row=radial, col=angular)
+        const occ: boolean[][] = Array.from({ length: G }, () => Array(G).fill(false));
+
+        // Deterministic hash for this motif
+        const h = ((m * 2654435761) >>> 0) & 0xffff;
+
+        // ── Place primary icon (2×2 or 3×3) ──
+        const pSz = (h % 5 < 2 && density > 0.15) ? 3 : 2;
+        const maxOff = G - pSz;
+        const pRow = h % (maxOff + 1);
+        const pCol = ((h >> 4) % (maxOff + 1));
+
+        for (let dr = 0; dr < pSz; dr++)
+            for (let dc = 0; dc < pSz; dc++)
+                occ[pRow + dr][pCol + dc] = true;
+
         if (primaryIcon) {
+            const sz = cellH * pSz * 0.88;
+            const pr = r1 + (pRow + pSz / 2) * cellH;
+            const pa = mBase + (pCol + pSz / 2) * cellA;
             ctx.save();
-            ctx.rotate(baseAngle);
-            ctx.translate(midR, 0);
-            ctx.rotate(-Math.PI / 2); // orient toward center
-            drawCanvasIcon(ctx, primaryIcon, 0, 0, primarySize, color, primaryStroke);
+            ctx.rotate(pa);
+            ctx.translate(pr, 0);
+            ctx.rotate(-Math.PI / 2);
+            drawCanvasIcon(ctx, primaryIcon, 0, 0, sz, color, strokeBig);
             ctx.restore();
         }
 
-        // Pack secondary icons densely around the primary
-        for (let s = 0; s < maxSec; s++) {
-            const secIcon = getIcon(secondaryNames[s % secondaryNames.length]);
-            if (!secIcon) continue;
+        if (secondaryNames.length === 0) continue;
+        const secN = secondaryNames.length;
+        let si = 0;
 
-            const side = s % 2 === 0 ? -1 : 1;
-            const rank = Math.floor(s / 2) + 1;
-            const angularSpread = 0.95 - density * 0.1; // tighter at high density
-            const angularOffset = side * rank * secAngleWidth * angularSpread;
-            const secR = rowPositions[s % rowPositions.length];
+        // ── Pass 1: fill 2×2 secondary blocks ──
+        if (density > 0.3) {
+            for (let r = 0; r <= G - 2; r++) {
+                for (let c = 0; c <= G - 2; c++) {
+                    if (occ[r][c] || occ[r][c + 1] || occ[r + 1][c] || occ[r + 1][c + 1]) continue;
+                    // At low density skip some 2×2 opportunities
+                    if (density < 0.6 && ((r + c + m) % 3 !== 0)) continue;
+                    occ[r][c] = occ[r][c + 1] = occ[r + 1][c] = occ[r + 1][c + 1] = true;
+                    const ic = getIcon(secondaryNames[si % secN]);
+                    si++;
+                    if (!ic) continue;
+                    const sz = cellH * 2 * 0.82;
+                    ctx.save();
+                    ctx.rotate(mBase + (c + 1) * cellA);
+                    ctx.translate(r1 + (r + 1) * cellH, 0);
+                    ctx.rotate(-Math.PI / 2);
+                    drawCanvasIcon(ctx, ic, 0, 0, sz, color, strokeSmall);
+                    ctx.restore();
+                }
+            }
+        }
 
-            ctx.save();
-            ctx.rotate(baseAngle + angularOffset);
-            ctx.translate(secR, 0);
-            ctx.rotate(-Math.PI / 2); // orient toward center
-            drawCanvasIcon(ctx, secIcon, 0, 0, secondarySize, color, secondaryStroke);
-            ctx.restore();
+        // ── Pass 2: fill remaining 1×1 cells ──
+        for (let r = 0; r < G; r++) {
+            for (let c = 0; c < G; c++) {
+                if (occ[r][c]) continue;
+                // At low density, skip some cells for breathing room
+                if (density < 0.5 && ((r * 3 + c * 7 + m) % 4 === 0)) continue;
+                occ[r][c] = true;
+                const ic = getIcon(secondaryNames[si % secN]);
+                si++;
+                if (!ic) continue;
+                const sz = cellH * 0.82;
+                ctx.save();
+                ctx.rotate(mBase + (c + 0.5) * cellA);
+                ctx.translate(r1 + (r + 0.5) * cellH, 0);
+                ctx.rotate(-Math.PI / 2);
+                drawCanvasIcon(ctx, ic, 0, 0, sz, color, strokeSmall);
+                ctx.restore();
+            }
         }
     }
 }
@@ -314,9 +340,7 @@ const PURE_TEXT_LAYERS = 5;
 
 /**
  * Render a single live layer ring.
- * ringIndex 0..PURE_TEXT_LAYERS-1: pure text (no inline icons)
- * ringIndex PURE_TEXT_LAYERS+: text with keyword→icon substitutions
- * Outer half of viewport: dense icon motif blocks
+ * All rings use dense icon motif blocks at uniform density (like pattern mode).
  */
 function renderLiveLayer(
     ctx: CanvasRenderingContext2D,
@@ -326,8 +350,8 @@ function renderLiveLayer(
     theme: ColorTheme,
     layerIndex: number,
     twist: number,
-    maxR: number,
-    ringIndex: number,
+    _maxR: number,
+    _ringIndex: number,
 ): boolean {
     const band = r2 - r1;
     if (band < MIN_BAND) return false;
@@ -355,39 +379,8 @@ function renderLiveLayer(
     ctx.lineWidth = Math.max(0.5, band * 0.015);
     ctx.stroke();
 
-    // Smooth transition zone between text and icon motifs.
-    // Instead of a hard cutoff, blend over a transition band so there's
-    // no visible pop when zooming/scrolling moves rings across the boundary.
-    const midR = (r1 + r2) / 2;
-    const transitionStart = maxR * 0.38;  // text fully visible below here
-    const transitionEnd = maxR * 0.55;    // icons fully visible above here
-    const transitionWidth = transitionEnd - transitionStart;
-
-    // iconBlend: 0 = pure text, 1 = pure icons
-    const iconBlend = transitionWidth > 0
-        ? Math.max(0, Math.min(1, (midR - transitionStart) / transitionWidth))
-        : (midR >= transitionStart ? 1 : 0);
-
-    // Density increases from transition zone to edge (0→1)
-    const density = maxR > 0 ? Math.max(0, Math.min(1, (midR - transitionEnd) / (maxR - transitionEnd))) : 0;
-
-    const savedAlpha = ctx.globalAlpha;
-
-    if (iconBlend < 1) {
-        // Draw text layer (fading out as iconBlend increases)
-        ctx.globalAlpha = savedAlpha * (1 - iconBlend);
-        const useIcons = ringIndex >= PURE_TEXT_LAYERS;
-        const matches = useIcons ? layer.keywordMatches : [];
-        drawTextRing(ctx, layer.headline.title, matches, r1, r2, color, twist);
-    }
-
-    if (iconBlend > 0) {
-        // Draw icon motifs (fading in as iconBlend increases)
-        ctx.globalAlpha = savedAlpha * iconBlend;
-        drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, density);
-    }
-
-    ctx.globalAlpha = savedAlpha;
+    // Uniform high density across all rings
+    drawIconMotifRing(ctx, layer.iconNames, r1, r2, color, twist, 0.85);
 
     ctx.restore();
     return true;
