@@ -47,7 +47,7 @@ interface Rss2JsonResponse {
 /** Fetch headlines from CurrentsAPI (primary source, 600 req/day, CORS-enabled) */
 export async function fetchCurrentsAPI(apiKey: string, count = 10): Promise<RawHeadline[]> {
     const url = `${CURRENTS_API_BASE}/latest-news?apiKey=${encodeURIComponent(apiKey)}&language=en&page_size=${count}`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`CurrentsAPI error: ${res.status}`);
 
     const data: CurrentsResponse = await res.json();
@@ -63,6 +63,18 @@ export async function fetchCurrentsAPI(apiKey: string, count = 10): Promise<RawH
     }));
 }
 
+/** Fetch with a hard timeout that races against a rejection */
+async function fetchWithTimeout(url: string, timeoutMs = 6000): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const res = await fetch(url, { signal: controller.signal });
+        return res;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 /** Fetch headlines from RSS feeds via rss2json.com (fallback, no API key needed) */
 export async function fetchRSSHeadlines(count = 20): Promise<RawHeadline[]> {
     const seenTitles = new Set<string>();
@@ -72,7 +84,7 @@ export async function fetchRSSHeadlines(count = 20): Promise<RawHeadline[]> {
     const results = await Promise.allSettled(
         RSS_FEEDS.map(async (feedUrl): Promise<RawHeadline[]> => {
             const url = `${RSS2JSON_BASE}?rss_url=${encodeURIComponent(feedUrl)}`;
-            const res = await fetch(url);
+            const res = await fetchWithTimeout(url);
             if (!res.ok) return [];
             const data: Rss2JsonResponse = await res.json();
             if (data.status !== 'ok') return [];
@@ -92,6 +104,7 @@ export async function fetchRSSHeadlines(count = 20): Promise<RawHeadline[]> {
         .map(r => r.value)
         .filter(arr => arr.length > 0);
 
+    if (feedResults.length === 0) return [];
     const maxPerFeed = Math.max(3, Math.ceil(count / feedResults.length));
     let round = 0;
     while (allHeadlines.length < count && round < maxPerFeed) {

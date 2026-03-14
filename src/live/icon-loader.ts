@@ -72,12 +72,17 @@ async function loadIcon(name: string): Promise<CanvasIcon | undefined> {
 /**
  * Ensure a list of icons are loaded. Non-blocking — starts loading
  * in background and returns immediately. Check with `getIcon()` later.
+ * Optional `onReady` callback fires once all requested icons have loaded.
  */
-export function ensureIconsLoaded(names: string[]): void {
+export function ensureIconsLoaded(names: string[], onReady?: () => void): void {
+    const pending: Promise<unknown>[] = [];
     for (const name of names) {
-        if (!loadedIcons.has(name) && !loading.has(name)) {
-            loadIcon(name);
+        if (!loadedIcons.has(name)) {
+            pending.push(loadIcon(name));
         }
+    }
+    if (onReady && pending.length > 0) {
+        Promise.all(pending).then(onReady);
     }
 }
 

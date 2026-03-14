@@ -71,7 +71,7 @@ export async function refreshLiveData(
 }> {
     // Check cache first
     const cached = loadCachedHeadlines();
-    if (cached && cached.length > 0) {
+if (cached && cached.length > 0) {
         return {
             headlines: cached,
             layerConfigs: headlinesToLayerConfigs(cached, layerCount, seed),
@@ -79,9 +79,13 @@ export async function refreshLiveData(
         };
     }
 
-    // Fetch fresh headlines
-    const raw = await fetchHeadlines(currentsKey || undefined, 15);
-    if (raw.length === 0) {
+    // Fetch fresh headlines with a hard 8s timeout to prevent hanging
+const fetchPromise = fetchHeadlines(currentsKey || undefined, 15);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Fetch timed out')), 3000)
+    );
+    const raw = await Promise.race([fetchPromise, timeoutPromise]);
+if (raw.length === 0) {
         throw new Error('No headlines fetched from any source');
     }
 
