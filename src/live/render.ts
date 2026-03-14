@@ -4,21 +4,18 @@
  * Completely separate from the hand-drawn pattern pipeline.
  * Renders sharp (no wobble) text and icons on mandala rings.
  *
- * Small rings: RSS headline text wraps along the circular arc
- * Large rings: Text transitions to Lucide icons representing the story
+ * Inner rings: RSS headline text fills the full band height, wrapping around the arc
+ * Outer rings (past midscreen): Dense, upright Lucide icons tiling the ring
  */
 
 import type { ClassifiedHeadline } from './types';
 import type { ColorTheme } from '../config/types';
-import { drawCanvasIcon, type CanvasIcon } from './lucide-canvas';
+import { drawCanvasIcon } from './lucide-canvas';
 import { getIcon, ensureIconsLoaded } from './icon-loader';
 import { getHeadlineIcons } from './icon-index';
 
-/** Threshold in pixels: rings wider than this show icons instead of text */
-const ICON_THRESHOLD = 35;
-
 /** Minimum band width to render anything */
-const MIN_BAND = 5;
+const MIN_BAND = 4;
 
 /** A resolved live layer: headline + its icon names */
 export interface LiveLayer {
@@ -35,7 +32,7 @@ export function buildLiveLayers(headlines: ClassifiedHeadline[]): LiveLayer[] {
     const allIconNames = new Set<string>();
 
     for (const headline of headlines) {
-        const iconNames = getHeadlineIcons(headline.title, headline.theme, 12);
+        const iconNames = getHeadlineIcons(headline.title, headline.theme, 16);
         layers.push({ headline, iconNames });
         iconNames.forEach(n => allIconNames.add(n));
     }
@@ -47,107 +44,153 @@ export function buildLiveLayers(headlines: ClassifiedHeadline[]): LiveLayer[] {
 }
 
 /**
- * Draw circular text along a ring arc.
- * Text follows the curve of the ring at the specified radius.
+ * Draw headline text filling the full band height, wrapping around the ring.
+ * Text is placed along multiple concentric rows if the band is tall enough.
  */
-function drawCircularText(
+function drawTextRing(
     ctx: CanvasRenderingContext2D,
     text: string,
-    radius: number,
-    band: number,
+    r1: number,
+    r2: number,
     color: string,
     startAngle: number,
 ): void {
-    const fontSize = Math.min(band * 0.55, 14);
-    if (fontSize < 4) return;
+    const band = r2 - r1;
+    if (band < MIN_BAND) return;
+
+    // Font fills the full band height, with padding
+    const fontSize = Math.max(3, band * 0.75);
+    const midR = (r1 + r2) / 2;
 
     ctx.save();
-    ctx.font = `${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", monospace`;
+    ctx.font = `bold ${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", "Courier New", monospace`;
     ctx.fillStyle = color;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
 
-    // Measure total text angle
-    const chars = text.split('');
-    const charWidths = chars.map(c => ctx.measureText(c).width);
-    const totalWidth = charWidths.reduce((a, b) => a + b, 0);
-    const totalAngle = totalWidth / radius;
+    // Measure characters
+    const upper = text.toUpperCase();
+    const chars = upper.split('');
+    const spaceWidth = ctx.measureText('M').width; // em-width for spacing
 
-    // Start at the given angle, centering text if it doesn't fill the circle
+    // Calculate how many characters fit around the circumference
+    const circumference = 2 * Math.PI * midR;
+    const charAngleWidth = spaceWidth / midR; // approximate angle per char
+
+    // Repeat text to fill the full circle, with bullet separators
     let angle = startAngle;
-    const fullCircle = Math.PI * 2;
-    const repeats = Math.ceil(fullCircle / (totalAngle + fontSize / radius));
+    const endAngle = startAngle + Math.PI * 2;
+    let charIdx = 0;
+    let inSeparator = false;
 
-    for (let rep = 0; rep < repeats; rep++) {
-        // Add a separator between repeats
-        if (rep > 0) {
-            angle += (fontSize * 1.5) / radius;
+    while (angle < endAngle - 0.01) {
+        let ch: string;
+        if (charIdx >= chars.length) {
+            // Separator between repeats
+            if (!inSeparator) {
+                angle += charAngleWidth * 1.5; // gap
+                inSeparator = true;
+            }
+            charIdx = 0;
+            inSeparator = false;
+            continue;
         }
 
-        for (let i = 0; i < chars.length; i++) {
-            const charAngle = charWidths[i] / radius;
-            angle += charAngle / 2;
+        ch = chars[charIdx];
+        charIdx++;
 
-            if (angle > startAngle + fullCircle + 0.1) break;
+        const charW = ctx.measureText(ch).width;
+        const halfAngle = (charW / midR) / 2;
+        angle += halfAngle;
 
-            ctx.save();
-            ctx.rotate(angle);
-            ctx.translate(0, -radius);
-            ctx.fillText(chars[i], 0, 0);
-            ctx.restore();
+        if (angle >= endAngle) break;
 
-            angle += charAngle / 2;
-        }
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.translate(0, -midR);
+        // Counter-rotate so text reads outward (tangent to circle)
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+
+        angle += halfAngle;
     }
 
     ctx.restore();
 }
 
 /**
- * Draw icons arranged radially around a ring.
- * Each symmetry slice gets a different icon from the sequence.
+ * Draw densely packed upright icons tiling a ring.
+ * Icons are placed in a grid pattern around the circumference.
+ * Each icon is counter-rotated to stay upright (readable).
  */
-function drawIconRing(
+function drawIconRingDense(
     ctx: CanvasRenderingContext2D,
     iconNames: string[],
     r1: number,
     r2: number,
-    symmetry: number,
     color: string,
     twist: number,
 ): void {
     const band = r2 - r1;
-    const midR = (r1 + r2) / 2;
-    const iconSize = band * 0.7;
-    const strokeWidth = Math.max(1, iconSize / 12);
-    const angleStep = (Math.PI * 2) / symmetry;
+    if (band < 8 || iconNames.length === 0) return;
 
-    for (let i = 0; i < symmetry; i++) {
-        const iconName = iconNames[i % iconNames.length];
-        const icon = getIcon(iconName);
-        if (!icon) continue;
+    // Icon size based on band, with padding
+    const padding = 0.15;
+    const iconSize = band * (1 - padding * 2);
+    if (iconSize < 6) return;
 
-        ctx.save();
-        ctx.rotate(i * angleStep + twist);
-        drawCanvasIcon(ctx, icon, midR, 0, iconSize, color, strokeWidth);
-        ctx.restore();
+    const strokeWidth = Math.max(0.8, Math.min(2, iconSize / 14));
+
+    // How many rows of icons fit radially in the band
+    const rowHeight = iconSize * 1.2;
+    const numRows = Math.max(1, Math.floor(band / rowHeight));
+    const actualRowHeight = band / numRows;
+    const actualIconSize = actualRowHeight * (1 - padding * 2);
+
+    for (let row = 0; row < numRows; row++) {
+        const rowR = r1 + actualRowHeight * (row + 0.5);
+
+        // How many icons fit around this circumference
+        const circumference = 2 * Math.PI * rowR;
+        const iconSpacing = actualIconSize * 1.15; // slight gap between icons
+        const numIcons = Math.max(1, Math.floor(circumference / iconSpacing));
+        const angleStep = (Math.PI * 2) / numIcons;
+
+        for (let i = 0; i < numIcons; i++) {
+            const iconIdx = (row * numIcons + i) % iconNames.length;
+            const iconName = iconNames[iconIdx];
+            const icon = getIcon(iconName);
+            if (!icon) continue;
+
+            const angle = i * angleStep + twist + row * angleStep * 0.5; // offset rows
+
+            ctx.save();
+            ctx.rotate(angle);
+            // Translate to the icon position on the ring
+            ctx.translate(rowR, 0);
+            // Counter-rotate to keep icon upright
+            ctx.rotate(-angle);
+
+            drawCanvasIcon(ctx, icon, 0, 0, actualIconSize, color, strokeWidth);
+            ctx.restore();
+        }
     }
 }
 
 /**
  * Render a single live layer ring.
- * Small rings → text, large rings → icons.
- * Returns true if something was drawn.
+ * Inner rings (< halfway to edge) → text
+ * Outer rings (>= halfway) → dense upright icons
  */
 function renderLiveLayer(
     ctx: CanvasRenderingContext2D,
     layer: LiveLayer,
     r1: number,
     r2: number,
-    symmetry: number,
     theme: ColorTheme,
     layerIndex: number,
     twist: number,
+    maxR: number,
 ): boolean {
     const band = r2 - r1;
     if (band < MIN_BAND) return false;
@@ -172,23 +215,19 @@ function renderLiveLayer(
     ctx.beginPath();
     ctx.arc(0, 0, r2, 0, Math.PI * 2);
     ctx.strokeStyle = theme.strokeLight;
-    ctx.lineWidth = Math.max(0.5, band * 0.02);
+    ctx.lineWidth = Math.max(0.5, band * 0.015);
     ctx.stroke();
 
-    if (band >= ICON_THRESHOLD) {
-        // Large ring → icons
-        drawIconRing(ctx, layer.iconNames, r1, r2, symmetry, color, twist);
+    // Transition: text for inner half, icons for outer half
+    const midScreen = maxR * 0.5;
+    const midR = (r1 + r2) / 2;
+
+    if (midR >= midScreen) {
+        // Outer rings → dense upright icons
+        drawIconRingDense(ctx, layer.iconNames, r1, r2, color, twist);
     } else {
-        // Small ring → text
-        const midR = (r1 + r2) / 2;
-        drawCircularText(
-            ctx,
-            layer.headline.title.toUpperCase(),
-            midR,
-            band,
-            color,
-            twist,
-        );
+        // Inner rings → headline text
+        drawTextRing(ctx, layer.headline.title, r1, r2, color, twist);
     }
 
     ctx.restore();
@@ -220,7 +259,7 @@ export function renderLiveMode(
 ): void {
     if (liveLayers.length === 0) return;
 
-    const { layers, spread, symmetry, zoom, twist, seed, spinVariance } = config;
+    const { layers, spread, zoom, twist, seed, spinVariance } = config;
     const offset = zoom % 1;
     const shift = Math.floor(zoom);
 
@@ -250,6 +289,6 @@ export function renderLiveMode(
         const layerSpinVar = 1 + (Math.sin(seed + absL * 777) * 0.5) * spinVariance;
         const layerTwist = twist * (1 / (Math.abs(absL) + 1)) * layerSpinVar;
 
-        renderLiveLayer(ctx, layer, r1, r2, symmetry, theme, absL, layerTwist);
+        renderLiveLayer(ctx, layer, r1, r2, theme, absL, layerTwist, maxR);
     }
 }
