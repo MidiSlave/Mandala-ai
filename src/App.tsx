@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns, iconPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
 import { mulberry32 } from './utils/rng';
 import { getFullscreenElement, requestFullscreen, exitFullscreen } from './utils/fullscreen';
-import { refreshLiveData, loadApiKeys, saveApiKeys, clearCache } from './live';
-import type { LiveLayerConfig, ClassifiedHeadline } from './live';
+import { refreshLiveData, loadApiKeys, saveApiKeys, clearCache, buildLiveLayers, renderLiveMode } from './live';
+import type { LiveLayerConfig, ClassifiedHeadline, LiveLayer } from './live';
 
 const ALL_PATTERN_SETS: PatternSet[] = [
     aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns,
@@ -19,7 +19,7 @@ const ALL_PATTERN_SETS: PatternSet[] = [
     islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns,
     polynesianPatterns,
     embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
-    organicCellPatterns, iconPatterns
+    organicCellPatterns
 ];
 
 export default function App() {
@@ -48,6 +48,7 @@ export default function App() {
     const [geminiKey, setGeminiKey] = useState('');
     const [currentsKey, setCurrentsKey] = useState('');
     const liveLayerConfigsRef = useRef<LiveLayerConfig[]>([]);
+    const liveLayersRef = useRef<LiveLayer[]>([]);
     const liveEnabledRef = useRef(false);
     const liveRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -279,144 +280,106 @@ export default function App() {
             }
         };
 
-        // Live mode layer configs
-        const liveConfigs = liveEnabledRef.current ? liveLayerConfigsRef.current : null;
+        // ── LIVE MODE: Isolated sharp renderer (text + Lucide icons) ──
+        const liveLayers = liveEnabledRef.current ? liveLayersRef.current : null;
 
-        // Draw Layers from outside in
-        for (let l = layers; l >= -1; l--) {
-            const absL = l - shift;
-            const liveConfig = liveConfigs && liveConfigs.length > 0 && l >= 0
-                ? liveConfigs[l % liveConfigs.length] : null;
-            const type = liveConfig ? liveConfig.motif : layerTypes[l + 1];
-            const filled = liveConfig ? liveConfig.filled : layerFilled[l + 1];
-            const layerRng = mulberry32(config.seed + absL * 999);
+        if (liveLayers && liveLayers.length > 0) {
+            // Live mode uses its own isolated renderer — no hand-drawn wobble
+            renderLiveMode(ctx, liveLayers, {
+                layers, spread: config.spread, symmetry: sym, zoom,
+                twist: config.twist, seed: config.seed, spinVariance: config.spinVariance,
+            }, theme, maxR, activePointerDist, isBulgeActive);
+        } else {
+            // ── PATTERN MODE: Hand-drawn pattern rendering ──
+            // Draw Layers from outside in
+            for (let l = layers; l >= -1; l--) {
+                const absL = l - shift;
+                const type = layerTypes[l + 1];
+                const filled = layerFilled[l + 1];
+                const layerRng = mulberry32(config.seed + absL * 999);
 
-            // Pick a color for this layer — live mode overrides with theme-matched colors
-            if (liveConfig) {
-                const liveTheme = COLOR_THEMES[liveConfig.themeIndex % COLOR_THEMES.length];
-                layerColor = liveTheme.colors[((absL % liveTheme.colors.length) + liveTheme.colors.length) % liveTheme.colors.length];
-            } else {
                 layerColor = theme.colors[((absL % theme.colors.length) + theme.colors.length) % theme.colors.length];
-            }
 
-            // Base radii
-            let r1 = Math.max(0, (l + offset) * config.spread);
-            let r2 = Math.max(0, (l + 1 + offset) * config.spread);
+                // Base radii
+                let r1 = Math.max(0, (l + offset) * config.spread);
+                let r2 = Math.max(0, (l + 1 + offset) * config.spread);
 
-            if (r2 <= 0) continue;
-            if (r1 > maxR) continue; // Skip layers entirely outside viewport
+                if (r2 <= 0) continue;
+                if (r1 > maxR) continue;
 
-            // Reactive Bulge: if pointer is near this layer, expand it slightly
-            const midR = (r1 + r2) / 2;
-            const distToLayer = Math.abs(activePointerDist - midR);
-            let bulge = 0;
-            if (isBulgeActive && distToLayer < config.spread * 1.5) {
-                bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
-            }
-            r2 += bulge;
-            if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
+                // Reactive Bulge
+                const midR = (r1 + r2) / 2;
+                const distToLayer = Math.abs(activePointerDist - midR);
+                let bulge = 0;
+                if (isBulgeActive && distToLayer < config.spread * 1.5) {
+                    bulge = (1 - distToLayer / (config.spread * 1.5)) * (config.spread * 0.4);
+                }
+                r2 += bulge;
+                if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
 
-            const band = r2 - r1;
-            const lw = getLineWidth(r1, r2);
+                const band = r2 - r1;
+                const lw = getLineWidth(r1, r2);
 
-            // LOD: skip patterns entirely for very thin bands (< 8px) — just draw ring
-            if (band < 8) {
+                if (band < 8) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r2, 0, Math.PI * 2);
+                    ctx.strokeStyle = theme.strokeLight;
+                    ctx.lineWidth = lw * 0.8;
+                    ctx.stroke();
+                    continue;
+                }
+
+                lowDetail = band < 30;
+
+                const layerSym = band < 20 ? Math.max(4, Math.floor(sym / 2))
+                               : band < 40 ? Math.max(6, Math.floor(sym * 0.75))
+                               : sym;
+                const layerAngleStep = (Math.PI * 2) / layerSym;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(0, 0, r2, 0, Math.PI * 2);
+                ctx.arc(0, 0, Math.max(0, r1 - 1), 0, Math.PI * 2, true);
+                ctx.clip();
+
+                ctx.fillStyle = theme.background;
+                ctx.beginPath();
+                ctx.arc(0, 0, r2, 0, Math.PI * 2);
+                ctx.fill();
+
+                const layerSpinFactor = 1 + (mulberry32(config.seed + absL * 777)() - 0.5) * config.spinVariance;
+                const layerTwist = config.twist * (1 / (Math.abs(absL) + 1)) * layerSpinFactor;
+
                 ctx.beginPath();
                 ctx.arc(0, 0, r2, 0, Math.PI * 2);
                 ctx.strokeStyle = theme.strokeLight;
                 ctx.lineWidth = lw * 0.8;
                 ctx.stroke();
-                continue;
-            }
 
-            // LOD: reduce detail for small bands (< 30px)
-            lowDetail = band < 30;
+                for (let i = 0; i < layerSym; i++) {
+                    ctx.save();
+                    ctx.rotate(i * layerAngleStep);
 
-            // Adaptive symmetry: reduce slices for small layers where detail is invisible
-            const layerSym = band < 20 ? Math.max(4, Math.floor(sym / 2))
-                           : band < 40 ? Math.max(6, Math.floor(sym * 0.75))
-                           : sym;
-            const layerAngleStep = (Math.PI * 2) / layerSym;
+                    const activeSet = patternSet
+                        ? patternSet
+                        : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
 
-            // Proper clipping: clip to annular ring
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(0, 0, r2, 0, Math.PI * 2);
-            ctx.arc(0, 0, Math.max(0, r1 - 1), 0, Math.PI * 2, true);
-            ctx.clip();
-
-            // Fill the band background
-            ctx.fillStyle = theme.background;
-            ctx.beginPath();
-            ctx.arc(0, 0, r2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Twist: Inner layers twist more than outer layers
-            // spinVariance adds per-layer speed variation (seeded so it's stable)
-            const layerSpinFactor = 1 + (mulberry32(config.seed + absL * 777)() - 0.5) * config.spinVariance;
-            const layerTwist = config.twist * (1 / (Math.abs(absL) + 1)) * layerSpinFactor;
-
-            // Draw separator ring at outer boundary
-            ctx.beginPath();
-            ctx.arc(0, 0, r2, 0, Math.PI * 2);
-            ctx.strokeStyle = theme.strokeLight;
-            ctx.lineWidth = lw * 0.8;
-            ctx.stroke();
-
-            // Draw pattern cells (with adaptive symmetry)
-            // Icon layers with iconSequence: each slice shows a different icon
-            const iconSeq = liveConfig?.iconSequence;
-            for (let i = 0; i < layerSym; i++) {
-                ctx.save();
-                const hasIconSeq = iconSeq && iconSeq.length > 0;
-                // Icon layers: apply twist via ctx.rotate (icons don't use mapUVInto which has its own twist)
-                // Pattern layers: twist is applied inside mapUVInto, so only rotate by slice angle
-                ctx.rotate(i * layerAngleStep + (hasIconSeq ? layerTwist : 0));
-
-                const activeSet = liveConfig
-                    ? ALL_PATTERN_SETS[liveConfig.patternSetIndex % ALL_PATTERN_SETS.length]
-                    : patternSet
-                    ? patternSet
-                    : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
-
-                // For icon layers, cycle through the icon sequence per slice
-                const sliceType = iconSeq && iconSeq.length > 0
-                    ? iconSeq[i % iconSeq.length]
-                    : type;
-
-                let drawUV: (uvPoints: [number, number][], style: PathStyle) => void;
-
-                if (iconSeq && iconSeq.length > 0) {
-                    // ICON MODE: map UV to a proportional square centered at (midR, 0)
-                    // This preserves icon shape instead of warping into a curved wedge
-                    const iconSize = band * 0.9;
-                    drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                        const len = uvPoints.length;
-                        for (let j = 0; j < len; j++) {
-                            // u maps to radial direction, v maps to tangential
-                            uvBuf[j].x = midR + (uvPoints[j][1] - 0.5) * iconSize;
-                            uvBuf[j].y = (uvPoints[j][0] - 0.5) * iconSize;
-                        }
-                        drawSmoothPath(uvBuf, style, layerRng, lw, len);
-                    };
-                } else {
-                    // PATTERN MODE: standard polar UV mapping
-                    drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                    const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
                         const len = uvPoints.length;
                         for (let j = 0; j < len; j++) {
                             mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, layerAngleStep, uvBuf[j]);
                         }
                         drawSmoothPath(uvBuf, style, layerRng, lw, len);
                     };
-                }
 
-                const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
-                activeSet.draw(sliceType % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
+                    const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
+                    activeSet.draw(type % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
+
+                    ctx.restore();
+                }
 
                 ctx.restore();
             }
-
-            ctx.restore(); // Restore clipping
         }
 
         // Dense center vanishing point — inside the innermost visible layer
@@ -546,6 +509,7 @@ export default function App() {
             );
             setLiveHeadlines(result.headlines);
             liveLayerConfigsRef.current = result.layerConfigs;
+            liveLayersRef.current = buildLiveLayers(result.headlines);
             isDirtyRef.current = true;
         } catch (err) {
             setLiveError(err instanceof Error ? err.message : 'Failed to fetch live data');
@@ -562,6 +526,7 @@ export default function App() {
             liveRefreshTimerRef.current = setInterval(doLiveRefresh, 10 * 60 * 1000);
         } else {
             liveLayerConfigsRef.current = [];
+            liveLayersRef.current = [];
             isDirtyRef.current = true;
             if (liveRefreshTimerRef.current) {
                 clearInterval(liveRefreshTimerRef.current);

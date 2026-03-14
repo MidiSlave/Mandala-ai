@@ -5,6 +5,8 @@ import { headlinesToLayerConfigs } from './themes';
 
 export type { LiveState, ClassifiedHeadline, LiveLayerConfig, NewsTheme, Sentiment } from './types';
 export { headlinesToLayerConfigs } from './themes';
+export { buildLiveLayers, renderLiveMode } from './render';
+export type { LiveLayer } from './render';
 
 const STORAGE_KEYS = {
     geminiKey: 'mandala-live-gemini-key',
