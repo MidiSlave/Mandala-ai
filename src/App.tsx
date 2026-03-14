@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns, iconPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
@@ -19,7 +19,7 @@ const ALL_PATTERN_SETS: PatternSet[] = [
     islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns,
     polynesianPatterns,
     embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
-    organicCellPatterns
+    organicCellPatterns, iconPatterns
 ];
 
 export default function App() {

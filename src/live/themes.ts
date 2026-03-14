@@ -1,4 +1,8 @@
 import type { NewsTheme, Sentiment, ClassifiedHeadline, LiveLayerConfig } from './types';
+import { THEME_ICONS } from '../patterns/icons/data';
+
+/** Index of iconPatterns in ALL_PATTERN_SETS */
+const ICON_PATTERN_INDEX = 29;
 
 /**
  * Maps news themes to pattern set indices in ALL_PATTERN_SETS.
@@ -10,7 +14,7 @@ import type { NewsTheme, Sentiment, ClassifiedHeadline, LiveLayerConfig } from '
  *  15: fractal, 16: spirals, 17: harmonograph, 18: truchet,
  *  19: islamic, 20: opart, 21: artnouveau, 22: aboriginal,
  *  23: polynesian, 24: embroidery, 25: maze, 26: flowfield,
- *  27: noisestrata, 28: organiccells
+ *  27: noisestrata, 28: organiccells, 29: icons (News Icons)
  */
 const THEME_PATTERNS: Record<NewsTheme, number[]> = {
     conflict:    [15, 25, 6, 0],      // fractal, maze, tribal, aztec — complex, intense
@@ -78,6 +82,21 @@ function sentimentParams(sentiment: Sentiment, intensity: number) {
     }
 }
 
+/**
+ * Map a theme name to the starting index in the flat ALL_ICONS array.
+ * THEME_ICONS keys are ordered: conflict(0), economy(3), weather(6), ...
+ * Each theme has 3 icons.
+ */
+const THEME_ICON_OFFSETS: Record<string, number> = (() => {
+    const offsets: Record<string, number> = {};
+    let idx = 0;
+    for (const key of Object.keys(THEME_ICONS)) {
+        offsets[key] = idx;
+        idx += THEME_ICONS[key].length;
+    }
+    return offsets;
+})();
+
 /** Convert a classified headline into layer rendering config */
 export function headlineToLayerConfig(
     headline: ClassifiedHeadline,
@@ -88,12 +107,32 @@ export function headlineToLayerConfig(
     const colors = THEME_COLORS[headline.theme] ?? THEME_COLORS.general;
     const params = sentimentParams(headline.sentiment, headline.intensity);
 
-    // Pick pattern and color using layer index for variety
-    const patternSetIndex = patterns[layerIndex % patterns.length];
     const themeIndex = colors[layerIndex % colors.length];
 
     // Deterministic motif selection based on seed + layer
     const motifSeed = ((seed + layerIndex * 137) >>> 0) % 100;
+
+    // Every 3rd layer uses an icon pattern for visual "readability"
+    const useIcon = layerIndex % 3 === 0;
+
+    if (useIcon) {
+        // Pick a themed icon from the flat ALL_ICONS array
+        const iconOffset = THEME_ICON_OFFSETS[headline.theme] ?? THEME_ICON_OFFSETS.general ?? 0;
+        const iconCount = THEME_ICONS[headline.theme]?.length ?? 3;
+        const iconMotif = iconOffset + (motifSeed % iconCount);
+
+        return {
+            patternSetIndex: ICON_PATTERN_INDEX,
+            motif: iconMotif,
+            filled: Math.random() < params.filledBias,
+            roughness: params.roughness,
+            spinFactor: params.spinFactor,
+            themeIndex,
+        };
+    }
+
+    // Standard abstract pattern layer
+    const patternSetIndex = patterns[layerIndex % patterns.length];
 
     return {
         patternSetIndex,
