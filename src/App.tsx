@@ -166,30 +166,12 @@ export default function App() {
         const shift = Math.floor(zoom);
         const offset = zoom - shift; // [0, 1)
 
-        const startAbs = -1 - shift;
-        const count = layers + 2; // l from -1 to layers
-
-        // Calculate types — use the active pattern set's count
+        // Pattern identity: layerId = l + shift
+        // As zoom increases, shift increments and layers slide inward.
+        // Each layerId keeps its pattern stable — the visual appearance of
+        // a layer never changes, it just moves to a smaller radius.
         const activePatternSet = patternSetRef.current ?? ALL_PATTERN_SETS[0];
         const numTypes = activePatternSet.count;
-        const getStep = (absL: number) => Math.floor(mulberry32(config.seed + absL * 999)() * (numTypes - 1)) + 1;
-        let currentType = Math.floor(mulberry32(config.seed)() * numTypes);
-        if (startAbs > 0) {
-            for (let i = 1; i <= startAbs; i++) currentType = (currentType + getStep(i)) % numTypes;
-        } else if (startAbs < 0) {
-            for (let i = 0; i > startAbs; i--) currentType = (currentType - getStep(i) + numTypes) % numTypes;
-        }
-
-        const layerTypes: number[] = [];
-        const layerFilled: boolean[] = [];
-        for (let i = 0; i < count; i++) {
-            const absL = startAbs + i;
-            if (i > 0) {
-                currentType = (currentType + getStep(absL)) % numTypes;
-            }
-            layerTypes.push(currentType);
-            layerFilled.push(mulberry32(config.seed + absL * 999 + 1)() > 0.5);
-        }
 
         // Helper: Map (u, v) in [0,1]x[0,1] to Polar Cartesian
         // Writes directly into target object to avoid allocations
@@ -293,12 +275,16 @@ export default function App() {
             // ── PATTERN MODE: Hand-drawn pattern rendering ──
             // Draw Layers from outside in
             for (let l = layers; l >= -1; l--) {
-                const absL = l - shift;
-                const type = layerTypes[l + 1];
-                const filled = layerFilled[l + 1];
-                const layerRng = mulberry32(config.seed + absL * 999);
+                const layerId = l + shift;
+                const layerRng = mulberry32(config.seed + layerId * 999);
+                // Pick pattern type — dedup against outer neighbor independently
+                let type = Math.floor(layerRng() * numTypes);
+                const neighborRng = mulberry32(config.seed + (layerId + 1) * 999);
+                const neighborType = Math.floor(neighborRng() * numTypes);
+                if (type === neighborType) type = (type + 1) % numTypes;
+                const filled = layerRng() > 0.5;
 
-                layerColor = theme.colors[((absL % theme.colors.length) + theme.colors.length) % theme.colors.length];
+                layerColor = theme.colors[((layerId % theme.colors.length) + theme.colors.length) % theme.colors.length];
 
                 // Base radii
                 let r1 = Math.max(0, (l + offset) * config.spread);
@@ -347,8 +333,8 @@ export default function App() {
                 ctx.arc(0, 0, r2, 0, Math.PI * 2);
                 ctx.fill();
 
-                const layerSpinFactor = 1 + (mulberry32(config.seed + absL * 777)() - 0.5) * config.spinVariance;
-                const layerTwist = config.twist * (1 / (Math.abs(absL) + 1)) * layerSpinFactor;
+                const layerSpinFactor = 1 + (mulberry32(config.seed + layerId * 777)() - 0.5) * config.spinVariance;
+                const layerTwist = config.twist * (1 / (Math.abs(layerId) + 1)) * layerSpinFactor;
 
                 ctx.beginPath();
                 ctx.arc(0, 0, r2, 0, Math.PI * 2);
@@ -362,7 +348,7 @@ export default function App() {
 
                     const activeSet = patternSet
                         ? patternSet
-                        : ALL_PATTERN_SETS[Math.abs(absL) % ALL_PATTERN_SETS.length];
+                        : ALL_PATTERN_SETS[Math.abs(layerId) % ALL_PATTERN_SETS.length];
 
                     const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
                         const len = uvPoints.length;
