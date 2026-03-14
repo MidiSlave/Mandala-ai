@@ -368,7 +368,10 @@ export default function App() {
             const iconSeq = liveConfig?.iconSequence;
             for (let i = 0; i < layerSym; i++) {
                 ctx.save();
-                ctx.rotate(i * layerAngleStep);
+                const hasIconSeq = iconSeq && iconSeq.length > 0;
+                // Icon layers: apply twist via ctx.rotate (icons don't use mapUVInto which has its own twist)
+                // Pattern layers: twist is applied inside mapUVInto, so only rotate by slice angle
+                ctx.rotate(i * layerAngleStep + (hasIconSeq ? layerTwist : 0));
 
                 const activeSet = liveConfig
                     ? ALL_PATTERN_SETS[liveConfig.patternSetIndex % ALL_PATTERN_SETS.length]
@@ -381,13 +384,32 @@ export default function App() {
                     ? iconSeq[i % iconSeq.length]
                     : type;
 
-                const drawUV = (uvPoints: [number, number][], style: PathStyle) => {
-                    const len = uvPoints.length;
-                    for (let j = 0; j < len; j++) {
-                        mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, layerAngleStep, uvBuf[j]);
-                    }
-                    drawSmoothPath(uvBuf, style, layerRng, lw, len);
-                };
+                let drawUV: (uvPoints: [number, number][], style: PathStyle) => void;
+
+                if (iconSeq && iconSeq.length > 0) {
+                    // ICON MODE: map UV to a proportional square centered at (midR, 0)
+                    // This preserves icon shape instead of warping into a curved wedge
+                    const iconSize = band * 0.9;
+                    drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                        const len = uvPoints.length;
+                        for (let j = 0; j < len; j++) {
+                            // u maps to radial direction, v maps to tangential
+                            uvBuf[j].x = midR + (uvPoints[j][1] - 0.5) * iconSize;
+                            uvBuf[j].y = (uvPoints[j][0] - 0.5) * iconSize;
+                        }
+                        drawSmoothPath(uvBuf, style, layerRng, lw, len);
+                    };
+                } else {
+                    // PATTERN MODE: standard polar UV mapping
+                    drawUV = (uvPoints: [number, number][], style: PathStyle) => {
+                        const len = uvPoints.length;
+                        for (let j = 0; j < len; j++) {
+                            mapUVInto(uvPoints[j][0], uvPoints[j][1], r1, r2, layerTwist, layerAngleStep, uvBuf[j]);
+                        }
+                        drawSmoothPath(uvBuf, style, layerRng, lw, len);
+                    };
+                }
+
                 const cellBaseStyle: PathStyle = filled ? 'filled' : 'opaque-outline';
                 activeSet.draw(sliceType % activeSet.count, { drawUV, filled, baseStyle: cellBaseStyle, rng: layerRng });
 
