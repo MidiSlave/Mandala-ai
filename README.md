@@ -1,13 +1,13 @@
 # Mandala Generator
 
-An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 29 distinct pattern sets — plus a **Live Mode** that transforms real-time news headlines into visual mandala art using dense grids of sharp Lucide icons.
+An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 33 distinct pattern sets — plus a **Live Mode** that transforms real-time news headlines into visual mandala art using dense grids of sharp Lucide icons.
 
 ![Mandala Generator](docs/hero-mandala.png)
 
 ## Features
 
 - **Infinite tunnel zoom** — pinch or scroll to travel endlessly inward/outward
-- **29 pattern sets** across cultural, generative, art movement, and research-inspired categories, plus Mix mode
+- **33 pattern sets** across cultural, generative, art movement, research-inspired, figurative, and thematic categories, plus Mix mode
 - **Mandala Live** — news headlines drive the visualization with dense adaptive icon grid motifs ([details](docs/live-mode.md))
 - **Hand-drawn aesthetic** — per-pass roughness wobble and paper grain overlay
 - **Touch and mouse gestures** — drag, pinch, double-tap, scroll
@@ -17,7 +17,7 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 
 ## Pattern Sets
 
-29 pattern sets organized into four categories. See the **[Pattern Reference Gallery](docs/patterns.md)** for visual strips of every motif.
+33 pattern sets organized into six categories. See the **[Pattern Reference Gallery](docs/patterns.md)** for visual strips of every motif.
 
 | Category | Sets | Examples |
 |----------|------|----------|
@@ -25,6 +25,8 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 | **Generative** (6) | Generative, Guilloche, Fractal, Spirals, Harmonograph, Truchet | Rose curves, Sierpinski, Fibonacci spirals, cymatics, moiré |
 | **Art Movements** (2) | Op Art, Art Nouveau | Checkerboard spheres, whiplash curves, Tiffany glass |
 | **Research** (4) | Maze, Flow Field, Noise Strata, Organic Cells | Theta mazes, flow fields, topographic strata, Voronoi |
+| **Figurative** (2) | Icons, Animals | Lucide icon grids, cats, elephants, giraffes, bats, snakes |
+| **Thematic** (2) | Death / Dark, Australasian Flora | Skulls, swords, explosions, banksia, waratah, silver fern |
 
 ## Mandala Live
 

@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Interactive Mandala Generator — a browser-based app that renders procedural mandala patterns on an HTML5 Canvas using a hand-drawn / rough aesthetic. Users can interact via touch gestures or mouse to twist, zoom (infinite tunnel effect), randomize, and animate the mandala. 29 pattern sets are available across cultural, generative, artistic, and research-inspired categories, plus a "Mix" mode that combines them.
+Interactive Mandala Generator — a browser-based app that renders procedural mandala patterns on an HTML5 Canvas using a hand-drawn / rough aesthetic. Users can interact via touch gestures or mouse to twist, zoom (infinite tunnel effect), randomize, and animate the mandala. 33 pattern sets are available across cultural, generative, artistic, research-inspired, figurative, and thematic categories, plus a "Mix" mode that combines them.
 
 ## Tech Stack
 
@@ -76,6 +76,12 @@ src/
     flowfield.ts       # Flow Field — sinusoidal, swirl, noise traces, distorted grid, convergence, turbulence (6 motifs)
     noisestrata.ts     # Noise Strata — topographic, fragmented grid, ridge, terrain, warp, columns (6 motifs)
     organiccells.ts    # Organic Cells — circle packing, metaballs, reaction-diffusion, Voronoi, mycelium, patchwork (6 motifs)
+    # Figurative patterns (2):
+    icons/             # Icons — dense Lucide icon grid motifs used by Live Mode
+    animals/           # Animals — sitting cat, walking cat, elephant, giraffe, cow, turkey, bat, snake, rat, fish, bear, lizard, bird, possum (14 motifs)
+    # Thematic patterns (2):
+    dark/              # Death / Dark — skull, bomb, sword, explosion, knife, bow & arrow, crossbones, axe, reaper (9 motifs)
+    ausflora/          # Australasian Flora — banksia, waratah, bottlebrush, silver fern, pohutukawa, eucalyptus, kowhai, protea, flannel flower, golden wattle (10 motifs)
 tools/                 # Offline analysis/rendering utilities (not part of the web app)
 index.html             # HTML shell
 vite.config.ts         # Vite config (base path, Tailwind plugin, env vars)

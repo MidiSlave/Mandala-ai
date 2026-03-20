@@ -30,3 +30,5 @@ export { default as noiseStrataPatterns } from './noisestrata';
 export { default as organicCellPatterns } from './organiccells';
 export { default as iconPatterns } from './icons/index';
 export { default as animalPatterns } from './animals/index';
+export { default as darkPatterns } from './dark/index';
+export { default as ausfloraPatterns } from './ausflora/index';
