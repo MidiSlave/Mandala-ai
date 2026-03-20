@@ -1097,6 +1097,16 @@ export default function App() {
                         onPointerDown={() => setShowGestureOverlay(false)}
                         onWheel={() => setShowGestureOverlay(false)}
                     >
+                        {/* Corner callout — top left: Settings */}
+                        <div className="absolute top-[1.85rem] left-[4.25rem] flex items-center gap-1.5">
+                            <span className="bg-black/60 backdrop-blur-sm text-white/80 text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full">Settings</span>
+                            <span className="text-white/50 text-xs">←</span>
+                        </div>
+                        {/* Corner callout — top right: Fullscreen & Save */}
+                        <div className="absolute top-[1.85rem] right-[7.5rem] flex items-center gap-1.5">
+                            <span className="text-white/50 text-xs">→</span>
+                            <span className="bg-black/60 backdrop-blur-sm text-white/80 text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full">Fullscreen &amp; Save</span>
+                        </div>
                         <div className="bg-black/60 backdrop-blur-sm rounded-3xl p-6 sm:p-8 max-w-sm mx-4 text-center text-white">
                             <div className="grid grid-cols-3 gap-4 mb-5">
                                 <div className="flex flex-col items-center gap-2">
