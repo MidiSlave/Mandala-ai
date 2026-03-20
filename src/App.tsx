@@ -36,7 +36,7 @@ export default function App() {
     const [patternSetIndex, setPatternSetIndex] = useState(-1);
     const patternSetRef = useRef<PatternSet | null>(null);
     const [themeIndex, setThemeIndex] = useState(1);
-    const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
+    const themeRef = useRef<ColorTheme>(COLOR_THEMES[1]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
     const [showGestureOverlay, setShowGestureOverlay] = useState(true);
     const [showHelpModal, setShowHelpModal] = useState(false);
