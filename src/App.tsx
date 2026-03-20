@@ -33,9 +33,9 @@ export default function App() {
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
-    const [patternSetIndex, setPatternSetIndex] = useState(0);
-    const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
-    const [themeIndex, setThemeIndex] = useState(0);
+    const [patternSetIndex, setPatternSetIndex] = useState(-1);
+    const patternSetRef = useRef<PatternSet | null>(null);
+    const [themeIndex, setThemeIndex] = useState(1);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
 
