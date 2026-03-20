@@ -24,8 +24,9 @@ export interface LiveLayer {
 /**
  * Precompute live layers from headlines.
  * Call this when headlines change, not every frame.
+ * Optional `onIconsReady` fires once all icons have loaded (for triggering redraws).
  */
-export function buildLiveLayers(headlines: ClassifiedHeadline[]): LiveLayer[] {
+export function buildLiveLayers(headlines: ClassifiedHeadline[], onIconsReady?: () => void): LiveLayer[] {
     const layers: LiveLayer[] = [];
     const allIconNames = new Set<string>();
 
@@ -36,7 +37,7 @@ export function buildLiveLayers(headlines: ClassifiedHeadline[]): LiveLayer[] {
     }
 
     // Trigger async loading of all needed icons
-    ensureIconsLoaded([...allIconNames]);
+    ensureIconsLoaded([...allIconNames], onIconsReady);
 
     return layers;
 }
@@ -279,16 +280,16 @@ export function renderLiveMode(
     const offset = zoom % 1;
     const shift = Math.floor(zoom);
 
-    for (let l = liveLayers_count; l >= -1; l--) {
+    for (let l = liveLayers_count + 1; l >= 0; l--) {
         // Use stable layer ID (l + shift) for headline assignment so that
         // each ring keeps the same headline as zoom/animation shifts layers.
         const layerId = l + shift;
         const layerIdx = ((layerId % headlineCount) + headlineCount) % headlineCount;
         const layer = liveLayers[layerIdx];
 
-        // Base radii
-        let r1 = Math.max(0, (l + offset) * liveSpread);
-        let r2 = Math.max(0, (l + 1 + offset) * liveSpread);
+        // Base radii — continuous: r = (layerId - zoom) * spread = (l - offset) * spread
+        let r1 = Math.max(0, (l - offset) * liveSpread);
+        let r2 = Math.max(0, (l + 1 - offset) * liveSpread);
 
         if (r2 <= 0) continue;
         if (r1 > maxR) continue;

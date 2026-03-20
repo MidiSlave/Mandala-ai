@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns } from './patterns';
+import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns, animalPatterns, darkPatterns, ausfloraPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
 import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
@@ -19,7 +19,7 @@ const ALL_PATTERN_SETS: PatternSet[] = [
     islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns,
     polynesianPatterns,
     embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns,
-    organicCellPatterns
+    organicCellPatterns, animalPatterns, darkPatterns, ausfloraPatterns
 ];
 
 export default function App() {
@@ -33,9 +33,9 @@ export default function App() {
     const [spinVariance, setSpinVariance] = useState(DEFAULT_CONFIG.spinVariance);
     const [waveSpeed, setWaveSpeed] = useState(DEFAULT_CONFIG.waveSpeed);
     const [zoomSpeed, setZoomSpeed] = useState(DEFAULT_CONFIG.zoomSpeed);
-    const [patternSetIndex, setPatternSetIndex] = useState(0);
-    const patternSetRef = useRef<PatternSet | null>(ALL_PATTERN_SETS[0]);
-    const [themeIndex, setThemeIndex] = useState(0);
+    const [patternSetIndex, setPatternSetIndex] = useState(-1);
+    const patternSetRef = useRef<PatternSet | null>(null);
+    const [themeIndex, setThemeIndex] = useState(1);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
 
@@ -159,9 +159,9 @@ export default function App() {
         }
 
         // --- Infinite tunnel: continuous conveyor belt ---
-        // Each layer has a unique `id`. Position t = (id - zoom) / N is continuous in zoom.
-        // As zoom increases, layers slide inward. New layers appear at the outer edge,
-        // old layers vanish into the center. Pattern identity is tied to `id`, never changes.
+        // Each layer has a unique `id` = l + shift. As zoom increases, layers slide
+        // inward smoothly. Radius = (l - offset) * spread is continuous across shift
+        // boundaries because layerId - zoom = l - offset (constant for a given layer).
         const zoom = config.zoom;
         const shift = Math.floor(zoom);
         const offset = zoom - shift; // [0, 1)
@@ -274,7 +274,8 @@ export default function App() {
         } else {
             // ── PATTERN MODE: Hand-drawn pattern rendering ──
             // Draw Layers from outside in
-            for (let l = layers; l >= -1; l--) {
+            // Extra +1 on upper bound so outer layer slides in smoothly during offset > 0
+            for (let l = layers + 1; l >= 0; l--) {
                 const layerId = l + shift;
                 const layerRng = mulberry32(config.seed + layerId * 999);
                 // Pick pattern type — dedup against outer neighbor independently
@@ -286,9 +287,10 @@ export default function App() {
 
                 layerColor = theme.colors[((layerId % theme.colors.length) + theme.colors.length) % theme.colors.length];
 
-                // Base radii
-                let r1 = Math.max(0, (l + offset) * config.spread);
-                let r2 = Math.max(0, (l + 1 + offset) * config.spread);
+                // Base radii — continuous: r = (layerId - zoom) * spread
+                // Using l - offset keeps radius smooth across shift boundaries.
+                let r1 = Math.max(0, (l - offset) * config.spread);
+                let r2 = Math.max(0, (l + 1 - offset) * config.spread);
 
                 if (r2 <= 0) continue;
                 if (r1 > maxR) continue;
@@ -369,7 +371,9 @@ export default function App() {
         }
 
         // Dense center vanishing point — inside the innermost visible layer
-        const innerCoreR = Math.max(0, offset * config.spread);
+        // With r = (l - offset) * spread, l=0 gives r = -offset*spread (clipped to 0).
+        // The innermost visible layer is l=1 when offset>0, so core radius = (1-offset)*spread.
+        const innerCoreR = Math.max(0, (1 - offset) * config.spread);
         if (innerCoreR > 2) {
             const cd = theme.centerDark;
             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerCoreR);
@@ -394,7 +398,7 @@ export default function App() {
         }
 
         // Draw inner circle cap
-        const innerR = Math.max(0, offset * config.spread);
+        const innerR = Math.max(0, (1 - offset) * config.spread);
         if (innerR > 0) {
             ctx.beginPath();
             ctx.arc(0, 0, innerR, 0, Math.PI * 2);
@@ -496,7 +500,7 @@ export default function App() {
             );
             setLiveHeadlines(result.headlines);
             liveLayerConfigsRef.current = result.layerConfigs;
-            liveLayersRef.current = buildLiveLayers(result.headlines);
+            liveLayersRef.current = buildLiveLayers(result.headlines, () => { isDirtyRef.current = true; });
             isDirtyRef.current = true;
         } catch (err) {
             // Fallback mock headlines when network is unavailable
@@ -515,7 +519,7 @@ export default function App() {
                 { title: 'Deforestation Crisis Threatens Wildlife Conservation Efforts', theme: 'environment', sentiment: 'negative', intensity: 0.7, source: 'mock' },
             ];
             setLiveHeadlines(mockHeadlines);
-            liveLayersRef.current = buildLiveLayers(mockHeadlines);
+            liveLayersRef.current = buildLiveLayers(mockHeadlines, () => { isDirtyRef.current = true; });
             isDirtyRef.current = true;
             setLiveError(null);
         } finally {
