@@ -1,5 +1,7 @@
 # Mandala Generator
 
+**[Try it live](https://midislave.github.io/Mandala-ai/)**
+
 An interactive mandala generator that renders culturally-inspired geometric patterns on HTML5 Canvas with a hand-drawn aesthetic. Explore infinite tunnel zoom, animated rotations, and 33 distinct pattern sets — plus a **Live Mode** that transforms real-time news headlines into visual mandala art using dense grids of sharp Lucide icons.
 
 ![Mandala Generator](docs/hero-mandala.png)
