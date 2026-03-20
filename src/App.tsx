@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns, animalPatterns, darkPatterns, ausfloraPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
@@ -25,7 +25,7 @@ const ALL_PATTERN_SETS: PatternSet[] = [
 export default function App() {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [uiVisible, setUiVisible] = useState(true);
+    const [uiVisible, setUiVisible] = useState(false);
     const [isAutoAnimating, setIsAutoAnimating] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [layerCount, setLayerCount] = useState(DEFAULT_CONFIG.layers);
@@ -38,6 +38,8 @@ export default function App() {
     const [themeIndex, setThemeIndex] = useState(1);
     const themeRef = useRef<ColorTheme>(COLOR_THEMES[0]);
     const [roughness, setRoughness] = useState(DEFAULT_CONFIG.roughness);
+    const [showGestureOverlay, setShowGestureOverlay] = useState(true);
+    const [showHelpModal, setShowHelpModal] = useState(false);
 
     // Live mode state
     const [liveEnabled, setLiveEnabled] = useState(false);
@@ -832,29 +834,16 @@ export default function App() {
 
                         <div className="text-center mb-4">
                             <h2 className="text-xl font-bold tracking-tight text-black uppercase mb-1">Mandala Generator</h2>
-                            <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Pattern Explorer</p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
-                                <Hand className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pan 1 Finger</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Twist (X)<br/>Symmetry (Y)</span>
+                            <div className="flex items-center justify-center gap-2">
+                                <p className="text-xs text-black/50 uppercase tracking-widest font-medium">Interactive Pattern Explorer</p>
+                                <button
+                                    onPointerDown={(e) => { e.stopPropagation(); setShowHelpModal(true); }}
+                                    className="p-1 text-black/40 hover:text-black transition-colors rounded-full hover:bg-black/5"
+                                    title="How to Use"
+                                >
+                                    <HelpCircle size={16} />
+                                </button>
                             </div>
-                            <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
-                                <Maximize className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Pinch / Scroll</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Infinite Zoom</span>
-                            </div>
-                            <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-black/5">
-                                <Shuffle className="mb-2 text-black/70" size={24} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">Double Tap</span>
-                                <span className="text-[10px] text-black/50 text-center mt-1">Randomize Pattern</span>
-                            </div>
-                        </div>
-
-                        <div className="text-center mb-4">
-                            <p className="text-[10px] text-black/60 uppercase tracking-widest font-bold">Hover / Touch to expand layers</p>
                         </div>
 
                         <div className="flex gap-4 mb-4 pointer-events-auto touch-auto">
@@ -1092,6 +1081,112 @@ export default function App() {
                                 Randomize
                             </button>
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Gesture hint overlay — shown on first load, dismissed on any interaction */}
+            <AnimatePresence>
+                {showGestureOverlay && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-auto"
+                        onPointerDown={() => setShowGestureOverlay(false)}
+                        onWheel={() => setShowGestureOverlay(false)}
+                    >
+                        <div className="bg-black/60 backdrop-blur-sm rounded-3xl p-6 sm:p-8 max-w-sm mx-4 text-center text-white">
+                            <div className="grid grid-cols-3 gap-4 mb-5">
+                                <div className="flex flex-col items-center gap-2">
+                                    <Hand className="text-white/90" size={28} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Pan</span>
+                                    <span className="text-[10px] text-white/60">Twist &amp; Symmetry</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <Maximize className="text-white/90" size={28} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Pinch</span>
+                                    <span className="text-[10px] text-white/60">Infinite Zoom</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <Shuffle className="text-white/90" size={28} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Double Tap</span>
+                                    <span className="text-[10px] text-white/60">Randomize</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-white/50 uppercase tracking-widest font-medium">Tap anywhere to start</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Help / How-to modal */}
+            <AnimatePresence>
+                {showHelpModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 z-[70] flex items-center justify-center pointer-events-auto"
+                        onPointerDown={(e) => { if (e.target === e.currentTarget) setShowHelpModal(false); }}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="bg-white/95 backdrop-blur-xl border border-black/10 rounded-3xl p-5 sm:p-6 max-w-sm mx-4 shadow-2xl shadow-black/10 max-h-[80dvh] overflow-y-auto"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-black">How to Use</h3>
+                                <button
+                                    onPointerDown={(e) => { e.stopPropagation(); setShowHelpModal(false); }}
+                                    className="p-1.5 text-black/40 hover:text-black transition-colors"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="space-y-3 text-xs text-black/70">
+                                <div className="flex items-start gap-3">
+                                    <Hand size={18} className="text-black/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-black/80 uppercase text-[10px] tracking-wider mb-0.5">Pan / Drag</p>
+                                        <p>Drag horizontally to twist. Drag vertically to change symmetry count.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <Maximize size={18} className="text-black/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-black/80 uppercase text-[10px] tracking-wider mb-0.5">Pinch / Scroll</p>
+                                        <p>Pinch with two fingers or scroll to zoom through an infinite tunnel of layers.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <Shuffle size={18} className="text-black/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-black/80 uppercase text-[10px] tracking-wider mb-0.5">Double Tap</p>
+                                        <p>Quickly tap twice to randomize the pattern seed.</p>
+                                    </div>
+                                </div>
+                                <hr className="border-black/10" />
+                                <div className="flex items-start gap-3">
+                                    <Settings2 size={18} className="text-black/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-black/80 uppercase text-[10px] tracking-wider mb-0.5">Controls</p>
+                                        <p>Tap the gear icon to open settings. Adjust layers, roughness, pattern set, color theme, and animation speeds.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <Layers size={18} className="text-black/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-black/80 uppercase text-[10px] tracking-wider mb-0.5">Hover / Touch Layers</p>
+                                        <p>Move cursor over or touch the mandala to expand and reveal individual ring layers.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
