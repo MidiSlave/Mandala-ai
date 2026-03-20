@@ -32,11 +32,16 @@ An interactive mandala generator that renders culturally-inspired geometric patt
 
 ## Mandala Live
 
-Live Mode transforms the mandala into a real-time news visualization. Each ring displays **dense grid motif blocks** of sharp Lucide icons representing the story's keywords and theme — primary icons take 4–9 blocks, secondaries fill the remaining cells.
+Live Mode transforms the mandala into a real-time news visualization. Two rendering modes:
+
+- **Icons** — dense grid motif blocks of sharp Lucide icons representing each story's keywords and theme
+- **Photos** — article thumbnail images tiled around rings with theme-color tinting
 
 See **[Live Mode Documentation](docs/live-mode.md)** for setup and details.
 
 **Works without API keys** — falls back to RSS feeds and keyword-based classification.
+
+> **Viewer discretion advised.** Live mode displays real-time news content which may include sensitive topics reflecting current global events.
 
 ## Controls
 

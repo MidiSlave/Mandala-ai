@@ -21,6 +21,7 @@ interface CurrentsArticle {
     title: string;
     description: string;
     url: string;
+    image: string;
     author: string;
     category: string[];
     published: string;
@@ -35,6 +36,8 @@ interface Rss2JsonItem {
     title: string;
     description: string;
     link: string;
+    thumbnail: string;
+    enclosure?: { link?: string };
     pubDate: string;
     categories: string[];
 }
@@ -58,6 +61,7 @@ export async function fetchCurrentsAPI(apiKey: string, count = 10): Promise<RawH
         description: article.description,
         source: article.author,
         url: article.url,
+        imageUrl: article.image || undefined,
         category: article.category?.[0],
         published: article.published,
     }));
@@ -92,6 +96,7 @@ export async function fetchRSSHeadlines(count = 20): Promise<RawHeadline[]> {
                 title: item.title,
                 description: item.description,
                 url: item.link,
+                imageUrl: item.thumbnail || item.enclosure?.link || undefined,
                 category: item.categories?.[0],
                 published: item.pubDate,
             }));

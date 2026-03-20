@@ -16,6 +16,7 @@ export interface ClassifiedHeadline {
     intensity: number; // 0-1, how strong the sentiment is
     source?: string;
     url?: string;
+    imageUrl?: string; // article thumbnail/hero image URL
     category?: string; // raw category from news API
 }
 
@@ -37,6 +38,7 @@ export interface RawHeadline {
     description?: string;
     source?: string;
     url?: string;
+    imageUrl?: string; // article thumbnail/hero image URL
     category?: string;
     published?: string;
 }

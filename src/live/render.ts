@@ -11,6 +11,7 @@ import type { ColorTheme } from '../config/types';
 import { drawCanvasIcon } from './lucide-canvas';
 import { getIcon, ensureIconsLoaded } from './icon-loader';
 import { getHeadlineIcons } from './icon-index';
+import { getImage, ensureImagesLoaded } from './image-loader';
 
 /** Minimum band width to render anything */
 const MIN_BAND = 4;
@@ -309,5 +310,183 @@ export function renderLiveMode(
         const layerTwist = twist * (1 / (Math.abs(layerId) + 1)) * layerSpinVar;
 
         renderLiveLayer(ctx, layer, r1, r2, theme, layerId, layerTwist, maxR, l);
+    }
+}
+
+
+// ─── PHOTO LIVE MODE ────────────────────────────────────────────────────────
+
+/** A resolved photo live layer: headline + its loaded image (if available) */
+export interface PhotoLiveLayer {
+    headline: ClassifiedHeadline;
+    imageUrl: string;
+}
+
+/**
+ * Precompute photo live layers from headlines.
+ * Only includes headlines that have an imageUrl.
+ * Triggers async image loading; fires `onImagesReady` when at least one loads.
+ */
+export function buildPhotoLiveLayers(
+    headlines: ClassifiedHeadline[],
+    onImagesReady?: () => void,
+): PhotoLiveLayer[] {
+    const layers: PhotoLiveLayer[] = [];
+    const urls: string[] = [];
+
+    for (const h of headlines) {
+        if (h.imageUrl) {
+            layers.push({ headline: h, imageUrl: h.imageUrl });
+            urls.push(h.imageUrl);
+        }
+    }
+
+    if (urls.length > 0) {
+        ensureImagesLoaded(urls, onImagesReady);
+    }
+
+    return layers;
+}
+
+/**
+ * Draw a single photo ring — tiles the headline's image around the annular ring.
+ * Each tile is drawn as a square (band × band) rotated to face the center.
+ * Applies an optional color tint overlay.
+ */
+function renderPhotoRing(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    r1: number,
+    r2: number,
+    theme: ColorTheme,
+    layerIndex: number,
+    twist: number,
+): void {
+    const band = r2 - r1;
+    if (band < 6) return;
+
+    const midR = (r1 + r2) / 2;
+    if (midR < 1) return;
+
+    const colorIdx = ((layerIndex % theme.colors.length) + theme.colors.length) % theme.colors.length;
+    const tintColor = theme.colors[colorIdx];
+
+    // Clip to annular ring
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r2, 0, Math.PI * 2);
+    ctx.arc(0, 0, Math.max(0, r1 - 1), 0, Math.PI * 2, true);
+    ctx.clip();
+
+    // Fill ring background
+    ctx.fillStyle = theme.background;
+    ctx.beginPath();
+    ctx.arc(0, 0, r2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tile images around the ring
+    const tileSize = band * 0.95;
+    const tileAngle = (tileSize * 1.05) / midR;
+    const count = Math.max(1, Math.floor((Math.PI * 2) / tileAngle));
+    const step = (Math.PI * 2) / count;
+
+    // Compute crop: take center square from image
+    const imgMin = Math.min(img.naturalWidth, img.naturalHeight);
+    const sx = (img.naturalWidth - imgMin) / 2;
+    const sy = (img.naturalHeight - imgMin) / 2;
+
+    for (let i = 0; i < count; i++) {
+        const a = i * step + twist;
+        ctx.save();
+        ctx.rotate(a);
+        ctx.translate(midR, 0);
+        ctx.rotate(-Math.PI / 2); // orient "up" toward center
+
+        // Draw the image tile centered at origin
+        const half = tileSize / 2;
+        ctx.drawImage(img, sx, sy, imgMin, imgMin, -half, -half, tileSize, tileSize);
+
+        // Color tint overlay
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = tintColor;
+        ctx.fillRect(-half, -half, tileSize, tileSize);
+        ctx.globalAlpha = 1;
+
+        ctx.restore();
+    }
+
+    // Separator ring
+    ctx.beginPath();
+    ctx.arc(0, 0, r2, 0, Math.PI * 2);
+    ctx.strokeStyle = theme.strokeLight;
+    ctx.lineWidth = Math.max(0.5, band * 0.015);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+/**
+ * Main entry point for Photo Live mode.
+ * Renders news headline images tiled around mandala rings.
+ * Completely separate from the icon-based live renderer.
+ */
+export function renderPhotoLiveMode(
+    ctx: CanvasRenderingContext2D,
+    photoLayers: PhotoLiveLayer[],
+    config: {
+        layers: number;
+        spread: number;
+        symmetry: number;
+        zoom: number;
+        twist: number;
+        seed: number;
+        spinVariance: number;
+    },
+    theme: ColorTheme,
+    maxR: number,
+    activePointerDist: number,
+    isBulgeActive: boolean,
+): void {
+    // Filter to layers whose images have actually loaded
+    const ready = photoLayers.filter(l => getImage(l.imageUrl) !== null);
+    if (ready.length === 0) return;
+
+    const { zoom, twist, seed, spinVariance } = config;
+
+    const headlineCount = ready.length;
+    const liveSpread = Math.max(25, Math.min(55, maxR / Math.max(headlineCount, 6)));
+    const layerCount = Math.ceil(maxR / liveSpread) + 2;
+
+    const offset = zoom % 1;
+    const shift = Math.floor(zoom);
+
+    for (let l = layerCount + 1; l >= 0; l--) {
+        const layerId = l + shift;
+        const layerIdx = ((layerId % headlineCount) + headlineCount) % headlineCount;
+        const layer = ready[layerIdx];
+
+        let r1 = Math.max(0, (l - offset) * liveSpread);
+        let r2 = Math.max(0, (l + 1 - offset) * liveSpread);
+
+        if (r2 <= 0 || r1 > maxR) continue;
+
+        // Bulge effect
+        const midR = (r1 + r2) / 2;
+        const distToLayer = Math.abs(activePointerDist - midR);
+        let bulge = 0;
+        if (isBulgeActive && distToLayer < liveSpread * 1.5) {
+            bulge = (1 - distToLayer / (liveSpread * 1.5)) * (liveSpread * 0.4);
+        }
+        r2 += bulge;
+        if (r1 > 1) r1 = Math.max(0, r1 - bulge * 0.3);
+
+        // Per-layer twist
+        const layerSpinVar = 1 + (Math.sin(seed + layerId * 777) * 0.5) * spinVariance;
+        const layerTwist = twist * (1 / (Math.abs(layerId) + 1)) * layerSpinVar;
+
+        const img = getImage(layer.imageUrl);
+        if (!img) continue;
+
+        renderPhotoRing(ctx, img, r1, r2, theme, layerId, layerTwist);
     }
 }
