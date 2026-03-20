@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { Settings2, X, Hand, Maximize, Shuffle, Download, Play, Pause, Layers, Palette, Maximize2, Minimize2, Radio, RefreshCw, Key, ChevronDown, ChevronUp, HelpCircle, ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { aztecPatterns, lacePatterns, nordicPatterns, chevronPatterns, lotusPatterns, greekkeyPatterns, tribalPatterns, artDecoPatterns, sacredPatterns, japanesePatterns, celticPatterns, egyptianPatterns, mesoamericanPatterns, generativePatterns, guillochePatterns, fractalPatterns, spiralPatterns, harmonographPatterns, truchetPatterns, islamicPatterns, opArtPatterns, artNouveauPatterns, aboriginalPatterns, polynesianPatterns, embroideryPatterns, mazePatterns, flowFieldPatterns, noiseStrataPatterns, organicCellPatterns, animalPatterns, darkPatterns, ausfloraPatterns } from './patterns';
 import type { PathStyle, PatternSet } from './patterns';
@@ -7,7 +7,8 @@ import type { ColorTheme, AppConfig } from './config/types';
 import { DEFAULT_CONFIG, COLOR_THEMES } from './config/defaults';
 import { mulberry32 } from './utils/rng';
 import { getFullscreenElement, requestFullscreen, exitFullscreen } from './utils/fullscreen';
-import { refreshLiveData, loadApiKeys, saveApiKeys, clearCache, buildLiveLayers, renderLiveMode } from './live';
+import { refreshLiveData, loadApiKeys, saveApiKeys, clearCache, buildLiveLayers, renderLiveMode, buildPhotoLiveLayers, renderPhotoLiveMode, clearImageCache } from './live';
+import type { PhotoLiveLayer } from './live';
 import type { LiveLayerConfig, ClassifiedHeadline, LiveLayer } from './live';
 
 const ALL_PATTERN_SETS: PatternSet[] = [
@@ -52,6 +53,9 @@ export default function App() {
     const liveLayerConfigsRef = useRef<LiveLayerConfig[]>([]);
     const liveLayersRef = useRef<LiveLayer[]>([]);
     const liveEnabledRef = useRef(false);
+    const [photoMode, setPhotoMode] = useState(false);
+    const photoModeRef = useRef(false);
+    const photoLayersRef = useRef<PhotoLiveLayer[]>([]);
     const liveRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // High-frequency refs
@@ -264,11 +268,18 @@ export default function App() {
             }
         };
 
-        // ── LIVE MODE: Isolated sharp renderer (text + Lucide icons) ──
+        // ── LIVE MODE: Isolated sharp renderer ──
         const liveLayers = liveEnabledRef.current ? liveLayersRef.current : null;
+        const photoLayers = (liveEnabledRef.current && photoModeRef.current) ? photoLayersRef.current : null;
 
-        if (liveLayers && liveLayers.length > 0) {
-            // Live mode uses its own isolated renderer — no hand-drawn wobble
+        if (photoLayers && photoLayers.length > 0) {
+            // Photo Live mode — news images tiled in rings
+            renderPhotoLiveMode(ctx, photoLayers, {
+                layers, spread: config.spread, symmetry: sym, zoom,
+                twist: config.twist, seed: config.seed, spinVariance: config.spinVariance,
+            }, theme, maxR, activePointerDist, isBulgeActive);
+        } else if (liveLayers && liveLayers.length > 0) {
+            // Icon Live mode — Lucide icons in adaptive grid motifs
             renderLiveMode(ctx, liveLayers, {
                 layers, spread: config.spread, symmetry: sym, zoom,
                 twist: config.twist, seed: config.seed, spinVariance: config.spinVariance,
@@ -503,6 +514,7 @@ export default function App() {
             setLiveHeadlines(result.headlines);
             liveLayerConfigsRef.current = result.layerConfigs;
             liveLayersRef.current = buildLiveLayers(result.headlines, () => { isDirtyRef.current = true; });
+            photoLayersRef.current = buildPhotoLiveLayers(result.headlines, () => { isDirtyRef.current = true; });
             isDirtyRef.current = true;
         } catch (err) {
             // Fallback mock headlines when network is unavailable
@@ -522,6 +534,7 @@ export default function App() {
             ];
             setLiveHeadlines(mockHeadlines);
             liveLayersRef.current = buildLiveLayers(mockHeadlines, () => { isDirtyRef.current = true; });
+            photoLayersRef.current = buildPhotoLiveLayers(mockHeadlines, () => { isDirtyRef.current = true; });
             isDirtyRef.current = true;
             setLiveError(null);
         } finally {
@@ -538,6 +551,8 @@ export default function App() {
         } else {
             liveLayerConfigsRef.current = [];
             liveLayersRef.current = [];
+            photoLayersRef.current = [];
+            clearImageCache();
             isDirtyRef.current = true;
             if (liveRefreshTimerRef.current) {
                 clearInterval(liveRefreshTimerRef.current);
@@ -551,6 +566,11 @@ export default function App() {
             }
         };
     }, [liveEnabled, doLiveRefresh]);
+
+    useEffect(() => {
+        photoModeRef.current = photoMode;
+        isDirtyRef.current = true;
+    }, [photoMode]);
 
     // --- Fullscreen Change Listener (standard + webkit) ---
     useEffect(() => {
@@ -943,6 +963,26 @@ export default function App() {
 
                             {liveEnabled && (
                                 <div className="mt-3 space-y-2">
+                                    {/* Icon / Photo mode toggle */}
+                                    <div className="flex rounded-lg overflow-hidden border border-black/10">
+                                        <button
+                                            onPointerDown={(e) => { e.stopPropagation(); setPhotoMode(false); }}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${!photoMode ? 'bg-black text-white' : 'bg-black/5 text-black/50 hover:bg-black/10'}`}
+                                        >
+                                            <Radio size={10} />
+                                            Icons
+                                        </button>
+                                        <button
+                                            onPointerDown={(e) => { e.stopPropagation(); setPhotoMode(true); }}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${photoMode ? 'bg-black text-white' : 'bg-black/5 text-black/50 hover:bg-black/10'}`}
+                                        >
+                                            <ImageIcon size={10} />
+                                            Photos
+                                        </button>
+                                    </div>
+                                    {photoMode && photoLayersRef.current.length === 0 && (
+                                        <p className="text-[10px] text-black/40 text-center">No article images available — showing icons</p>
+                                    )}
                                     {liveError && (
                                         <p className="text-[10px] text-red-500 font-medium">{liveError}</p>
                                     )}

@@ -76,6 +76,7 @@ export async function classifyWithGemini(
             intensity: Math.max(0, Math.min(1, c.intensity)),
             source: h.source,
             url: h.url,
+            imageUrl: h.imageUrl,
             category: h.category,
         };
     });
@@ -108,6 +109,7 @@ export async function classifyHeadlines(
             intensity: c.intensity,
             source: h.source,
             url: h.url,
+            imageUrl: h.imageUrl,
             category: h.category,
         };
     });
