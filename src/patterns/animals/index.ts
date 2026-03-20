@@ -13,10 +13,11 @@ import { draw as bear } from './bear';
 import { draw as lizard } from './lizard';
 import { draw as bird } from './bird';
 import { draw as possum } from './possum';
+import { draw as kangaroo } from './kangaroo';
 
 const motifs = [
     sittingCat, walkingCat, elephant, giraffe, cow, turkey, bat,
-    snake, rat, fish, bear, lizard, bird, possum
+    snake, rat, fish, bear, lizard, bird, possum, kangaroo
 ];
 
 const animalPatterns: PatternSet = {
