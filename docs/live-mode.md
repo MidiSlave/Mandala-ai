@@ -1,6 +1,8 @@
 # Mandala Live
 
-Mandala Live transforms the generator into a real-time news visualization. Each mandala ring represents a headline — rendered with sharp Lucide icons in dense, adaptive grid motif blocks, completely isolated from the hand-drawn pattern system.
+> **Viewer discretion advised.** Live mode visualizes real-time news headlines which may include content related to conflict, violence, crime, disasters, and other sensitive topics reflecting current global events. Headline imagery and icons are generated automatically from news feeds without editorial filtering.
+
+Mandala Live transforms the generator into a real-time news visualization. Each mandala ring represents a headline — rendered with sharp Lucide icons in dense, adaptive grid motif blocks, or with tiled article photographs, completely isolated from the hand-drawn pattern system.
 
 ![Live Mode](live-mode-panel.png)
 
@@ -49,11 +51,14 @@ A keyword index maps 500+ words to specific Lucide icons across 20+ categories:
 ## Usage
 
 1. Click **Live Mode** in the control panel
-2. Pattern dropdown is disabled — rings are driven by news
-3. Color themes remain selectable
-4. Headlines appear in the panel with sentiment dots (green/red/gray)
-5. Click **Refresh** to fetch new headlines (auto-refreshes every 10 minutes)
-6. Optionally add API keys under **API Keys** for richer results
+2. Toggle between **Icons** (Lucide icon grids) and **Photos** (article thumbnail images tiled around rings)
+3. Pattern dropdown is disabled — rings are driven by news
+4. Color themes remain selectable
+5. Headlines appear in the panel with sentiment dots (green/red/gray)
+6. Click **Refresh** to fetch new headlines (auto-refreshes every 10 minutes)
+7. Optionally add API keys under **API Keys** for richer results
+
+Photo mode tiles article images around each mandala ring with a subtle theme-color tint. If no article images are available (e.g. when using mock/fallback data), it gracefully falls back to icon mode.
 
 ## Works Without API Keys
 
@@ -73,12 +78,13 @@ Live mode rendering is **completely isolated** from the hand-drawn pattern pipel
 
 ```
 src/live/
-  render.ts        # Isolated canvas renderer (adaptive icon grids, sharp, no wobble)
+  render.ts        # Isolated canvas renderer (icon grids + photo tiling, sharp, no wobble)
   lucide-canvas.ts # Lucide icon → Canvas2D Path2D conversion
   icon-loader.ts   # Async dynamic loader for Lucide icons (1,800+ available)
   icon-index.ts    # 500+ keyword → Lucide icon name mappings
+  image-loader.ts  # Async CORS image loader with cache for Photo Live mode
   classify.ts      # Gemini LLM + keyword fallback classification
-  news.ts          # CurrentsAPI + RSS feed fetching
+  news.ts          # CurrentsAPI + RSS feed fetching (extracts image URLs)
   themes.ts        # Theme → color/pattern mapping
   types.ts         # TypeScript interfaces
 ```
